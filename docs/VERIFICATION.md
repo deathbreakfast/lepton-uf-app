@@ -3,11 +3,26 @@
 Workspace members: `lepton-shell`, `lepton-app`, `lepton-auth-app`,
 `lepton-uf-app-e2e`, `examples/lepton-mount-host`.
 
+## PR CI parity (run before push / opening a PR)
+
+Matches [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) required jobs.
+Toolchain: **nightly**. Global env includes `RUSTFLAGS=-D warnings`.
+
+| CI job | Local command |
+|--------|----------------|
+| fmt | `cargo fmt -p lepton-shell -p lepton-app -p lepton-auth-app -p lepton-mount-host -p lepton-uf-app-e2e -- --check` |
+| clippy | product crates + `lepton-uf-app-e2e` + `lepton-mount-host` (see Gates) |
+| test | check/run/test block in Gates |
+| docs | `RUSTDOCFLAGS="-D warnings" cargo doc -p lepton-shell -p lepton-app -p lepton-auth-app --features ssr --no-deps` |
+| leptos-lints | dylint hydrate commands below (`nightly-2025-05-14`) |
+| e2e | Mailpit + `cargo leptos end-to-end --split --project lepton-uf-app-e2e` |
+
 ## Environment
 
 ```bash
 export CARGO_BUILD_JOBS=1
 export CARGO_TARGET_DIR=target-lepton-uf-app
+export RUSTFLAGS="-D warnings"
 ```
 
 This workspace pins `rust-toolchain.toml` to `nightly` (Leptos `nightly` features + Orbital). Use that channel for the commands below.
@@ -15,9 +30,15 @@ This workspace pins `rust-toolchain.toml` to `nightly` (Leptos `nightly` feature
 ## Gates
 
 ```bash
+cargo fmt -p lepton-shell -p lepton-app -p lepton-auth-app -p lepton-mount-host -p lepton-uf-app-e2e -- --check
+cargo clippy -p lepton-shell -p lepton-app -p lepton-auth-app --features ssr --all-targets -- -D warnings
+cargo clippy -p lepton-uf-app-e2e --features ssr --all-targets -- -D warnings
+cargo clippy -p lepton-mount-host --all-targets -- -D warnings
 cargo check -p lepton-shell -p lepton-app -p lepton-auth-app --features ssr
 cargo check -p lepton-mount-host
 cargo check -p lepton-uf-app-e2e --features ssr
+cargo check -p lepton-app --target wasm32-unknown-unknown --features hydrate
+cargo check -p lepton-auth-app --target wasm32-unknown-unknown --features hydrate
 cargo run -p lepton-mount-host
 cargo test -p lepton-app --features ssr --lib -- validate_display_name
 cargo test -p lepton-shell --features ssr --test workspace_members

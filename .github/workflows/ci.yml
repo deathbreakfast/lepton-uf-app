@@ -1,7 +1,6 @@
 # PR / merge gate aligned with docs/VERIFICATION.md.
-# CI checks this repo out under the Unified Field operator layout and shallow-clones
-# L0/L1 siblings. Product deps resolve via git (unified-field-dev); lepton checkout is
-# for Mailpit compose in e2e.
+# Standalone checkout — UF deps resolve via git branch = main on unified-field-dev.
+# Private lepton checkout is e2e-only (Mailpit compose).
 #
 # Pull requests: `pull_request` runs for branches on unified-field-dev/lepton-uf-app.
 # Fork PRs need a same-repo branch on uf-dev or fork-workflow approval in Settings.
@@ -24,41 +23,17 @@ env:
   RUST_BACKTRACE: 1
   # Leptos workspace deps enable the `nightly` feature.
   RUSTFLAGS: "-D warnings"
-  UF_ROOT: unified-field
-  APP_WD: unified-field/L2-product-platform/lepton-uf-app
 
 jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
-      - name: Checkout lepton (Mailpit / private kit)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
           components: rustfmt
       - name: cargo fmt --check
-        working-directory: ${{ env.APP_WD }}
         run: >
           cargo fmt
           -p lepton-shell -p lepton-app -p lepton-auth-app -p lepton-mount-host
@@ -68,86 +43,38 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
-      - name: Checkout lepton (Mailpit / private kit)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
           components: clippy
       - name: cargo clippy (product crates, ssr)
-        working-directory: ${{ env.APP_WD }}
         run: >
           cargo clippy
           -p lepton-shell -p lepton-app -p lepton-auth-app
           --features ssr --all-targets -- -D warnings
       - name: cargo clippy (lepton-uf-app-e2e, ssr)
-        working-directory: ${{ env.APP_WD }}
         run: >
           cargo clippy -p lepton-uf-app-e2e --features ssr --all-targets
           -- -D warnings
       - name: cargo clippy (lepton-mount-host)
-        working-directory: ${{ env.APP_WD }}
         run: cargo clippy -p lepton-mount-host --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
-      - name: Checkout lepton (Mailpit / private kit)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
       - name: cargo check (product crates + mount host + e2e)
-        working-directory: ${{ env.APP_WD }}
         run: |
           cargo check -p lepton-shell -p lepton-app -p lepton-auth-app --features ssr
           cargo check -p lepton-mount-host
           cargo check -p lepton-uf-app-e2e --features ssr
       - name: cargo run (lepton-mount-host)
-        working-directory: ${{ env.APP_WD }}
         run: cargo run -p lepton-mount-host
       - name: cargo test (profile units + lepton-shell surfaces)
-        working-directory: ${{ env.APP_WD }}
         run: |
           cargo test -p lepton-app --features ssr --lib -- validate_display_name
           cargo test -p lepton-shell --features ssr --test workspace_members
@@ -157,28 +84,13 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Checkout lepton (Mailpit / private kit)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
+          path: lepton
           ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
@@ -189,13 +101,13 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end/package-lock.json
+          cache-dependency-path: lepton-uf-app-e2e/end2end/package-lock.json
       - name: Install npm dependencies
-        working-directory: ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end
+        working-directory: lepton-uf-app-e2e/end2end
         run: npm ci
       - name: Get Playwright version
         id: pw-version
-        working-directory: ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end
+        working-directory: lepton-uf-app-e2e/end2end
         run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> $GITHUB_OUTPUT
       - uses: actions/cache@v4
         id: playwright-cache
@@ -204,14 +116,14 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-uf-app
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end
+        working-directory: lepton-uf-app-e2e/end2end
         run: npx playwright install --with-deps chromium
       - name: Install Playwright OS deps when cache hit
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        working-directory: ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end
+        working-directory: lepton-uf-app-e2e/end2end
         run: npx playwright install-deps chromium
       - name: Start Mailpit
-        working-directory: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
+        working-directory: lepton
         run: docker compose -f infra/mailpit/docker-compose.yml up -d
       - name: Wait for Mailpit API
         run: |
@@ -224,7 +136,6 @@ jobs:
           echo "Mailpit did not become ready" >&2
           exit 1
       - name: cargo leptos end-to-end
-        working-directory: ${{ env.APP_WD }}
         env:
           CI: true
         run: cargo leptos end-to-end --split --project lepton-uf-app-e2e
@@ -234,40 +145,18 @@ jobs:
         with:
           name: playwright-artifacts-uf-app-${{ github.run_id }}
           path: |
-            ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end/playwright-report/
-            ${{ env.APP_WD }}/lepton-uf-app-e2e/end2end/test-results/
+            lepton-uf-app-e2e/end2end/playwright-report/
+            lepton-uf-app-e2e/end2end/test-results/
           if-no-files-found: ignore
 
   docs:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
-      - name: Checkout lepton (Mailpit / private kit)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
       - name: cargo doc (product crates, deny warnings)
-        working-directory: ${{ env.APP_WD }}
         env:
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc -p lepton-shell -p lepton-app -p lepton-auth-app --features ssr --no-deps
@@ -275,28 +164,7 @@ jobs:
   leptos-lints:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lepton-uf-app into unified-field layout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ env.APP_WD }}
-      - name: Checkout lepton (Mailpit / private kit)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: unified-field-dev/lepton
-          path: ${{ env.UF_ROOT }}/L1-host-stack-kits/lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
-      - name: Checkout path-dep / patch siblings
-        run: |
-          set -euo pipefail
-          clone() {
-            local repo="$1" dest="$2" org="${3:-unified-field-dev}"
-            git clone --depth 1 "https://github.com/${org}/${repo}.git" "${dest}"
-          }
-          clone valence "${UF_ROOT}/L0-upstream-cores/valence"
-          clone orbital "${UF_ROOT}/L0-upstream-cores/orbital"
-          clone higgs "${UF_ROOT}/L1-host-stack-kits/higgs"
-          clone photon "${UF_ROOT}/L0-upstream-cores/photon"
-          clone photon-leptos "${UF_ROOT}/L1-host-stack-kits/photon-leptos"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
@@ -309,7 +177,6 @@ jobs:
       - name: Install leptos-lints nightly toolchain
         run: rustup toolchain install nightly-2025-05-14 --component rustc-dev,llvm-tools-preview
       - name: cargo dylint (leptos-lints)
-        working-directory: ${{ env.APP_WD }}
         env:
           CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
           RUSTFLAGS: "-D warnings -Zcrate-attr=feature(stdarch_x86_avx512)"

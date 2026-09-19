@@ -120,6 +120,7 @@ orbital-theme = { git = "https://github.com/unified-field-dev/orbital", branch =
 
 valence = { package = "uf-valence", git = "https://github.com/unified-field-dev/valence", branch = "main", default-features = false, features = ["mem", "sqlite"] }
 valence-codegen = { package = "uf-valence-codegen", git = "https://github.com/unified-field-dev/valence", branch = "main" }
+meson-leptos = { package = "meson-leptos", git = "https://github.com/unified-field-dev/meson", branch = "main", default-features = false }
 higgs = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-host = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-identity = { git = "https://github.com/unified-field-dev/higgs", branch = "main" }

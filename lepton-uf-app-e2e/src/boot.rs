@@ -238,6 +238,12 @@ pub fn boot_platform() -> anyhow::Result<(
     if std::env::var_os("VALENCE_OWNERSHIP_COLOCATE").is_none() {
         std::env::set_var("VALENCE_OWNERSHIP_COLOCATE", "0");
     }
+    // Sealed TOTP secrets require a key; CI/local e2e use the non-production test key.
+    if std::env::var_os("LEPTON_TOTP_SEAL_KEY").is_none()
+        && std::env::var_os("LEPTON_TOTP_ALLOW_TEST_SEAL_KEY").is_none()
+    {
+        std::env::set_var("LEPTON_TOTP_ALLOW_TEST_SEAL_KEY", "1");
+    }
 
     let backend: Arc<dyn DatabaseBackend> = Arc::new(TolerantMemBackend::new());
     let mut router = DatabaseRouter::new();

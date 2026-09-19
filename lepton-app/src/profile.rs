@@ -3,19 +3,19 @@ use crate::profile_photo_upload::ProfilePhotoUpload;
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use serde::{Deserialize, Serialize};
-use uf_product::components::{Card, ContentContainer, Subtitle2, Title3};
+use uf_product::components::{Card, CardContent, ContentContainer, Subtitle2, Title3};
 use uf_product::primitives::*;
 use uf_product::{use_auth_context, use_auth_state};
 
-/// Payload for [`get_my_profile`]: display name, Valence profile id, and optional photo URL.
+/// Payload for [`get_my_profile`]: display name, Valence profile id, and optional photo file id.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileData {
     /// User-facing display name (editable via [`update_my_profile`]).
     pub display_name: String,
     /// Valence `UserProfile` record id (string form).
     pub profile_id: String,
-    /// Absolute file URL when an active photo exists (`/api/files/{id}`).
-    pub photo_url: Option<String>,
+    /// Meson File id when an active photo exists (fed to `<MesonImg>`).
+    pub photo_file_id: Option<String>,
 }
 
 /// Max display name length (aligned with lepton-identity `UserProfile` MaxLength(255)).
@@ -69,7 +69,7 @@ pub async fn get_my_profile() -> Result<ProfileData, ServerFnError> {
     let user_email = user.email.clone();
     let v = user_valence(&ctx)?;
 
-    let existing = UserProfile::query(&v)
+    let existing = UserProfile::query_used(&v, valence::use_!(r"On your **account profile** page we **load your display name and profile photo reference** so you can view and edit them. If you have never opened this page, we **create a profile** from your account email first. The photo file itself is fetched through the files API when a photo is set."))
         .where_user(RecordPredicate::Equals(user_thing.clone()))
         .first()
         .await
@@ -88,7 +88,7 @@ pub async fn get_my_profile() -> Result<ProfileData, ServerFnError> {
             )
             .map_err(|_| profile_server_err("profile_build", "failed to build profile"))?;
 
-            UserProfile::create(new_profile, &v)
+            UserProfile::create_used(new_profile, &v, valence::use_!(r"On your **account profile** page, if you have never opened it before, we **create a profile** from your account email so you can set a **display name** and photo. You use this on the profile page."))
                 .await
                 .map_err(|_| profile_server_err("profile_create", "failed to create profile"))?
         }
@@ -99,14 +99,12 @@ pub async fn get_my_profile() -> Result<ProfileData, ServerFnError> {
         .map(|t| t.id().to_string())
         .ok_or_else(|| profile_server_err("profile_id", "profile id missing"))?;
 
-    let photo_url = profile
-        .active_photo()
-        .map(|rid| format!("/api/files/{}", rid.id()));
+    let photo_file_id = profile.active_photo().map(|rid| rid.id().to_string());
 
     Ok(ProfileData {
         display_name: profile.display_name().to_string(),
         profile_id,
-        photo_url,
+        photo_file_id,
     })
 }
 
@@ -133,7 +131,7 @@ pub async fn update_my_profile(display_name: String) -> Result<(), ServerFnError
     let user_thing = user.id.clone();
     let v = user_valence(&ctx)?;
 
-    let profile = UserProfile::query(&v)
+    let profile = UserProfile::query_used(&v, valence::use_!(r"On your **account profile** page we **load your display name and profile photo reference** so you can view and edit them. If you have never opened this page, we **create a profile** from your account email first. The photo file itself is fetched through the files API when a photo is set."))
         .where_user(RecordPredicate::Equals(user_thing))
         .first()
         .await
@@ -141,7 +139,7 @@ pub async fn update_my_profile(display_name: String) -> Result<(), ServerFnError
         .ok_or_else(|| profile_server_err("profile_missing", "profile not found"))?;
 
     profile
-        .get_mutable(&v)
+        .get_mutable_used(&v, valence::use_!(r"When you save on **account profile**, we **update your display name** on your profile record so the page shows what you just entered. Only you use this change on your profile; it is not published as a directory listing to other people from this save alone."))
         .set_display_name(display_name)
         .map_err(|_| profile_server_err("profile_validate", "display name rejected"))?
         .commit()
@@ -207,12 +205,12 @@ pub fn ProfilePage() -> impl IntoView {
                                 Ok(profile) => {
                                     let display_name = profile.display_name.clone();
                                     let profile_id = profile.profile_id.clone();
-                                    let photo_url = profile.photo_url.clone();
+                                    let photo_file_id = profile.photo_file_id.clone();
                                     let display_name_signal = Signal::derive({
                                         let dn = display_name.clone();
                                         move || dn.clone()
                                     });
-                                    let photo_url_prop = MaybeProp::from(photo_url);
+                                    let photo_file_id_prop = MaybeProp::from(photo_file_id);
                                     let profile_id_signal = Signal::derive({
                                         let pid = profile_id.clone();
                                         move || pid.clone()
@@ -221,16 +219,16 @@ pub fn ProfilePage() -> impl IntoView {
                                     view! {
                                         <Flex vertical=true gap=FlexGap::Large>
                                             <Card>
+                                                <CardContent>
                                                 <div data-testid="profile-photo-section">
                                                 <Flex
                                                     vertical=true
                                                     align=FlexAlign::Center
                                                     gap=FlexGap::Medium
-                                                    padding=SpacingInset::all_l()
                                                 >
                                                     <Subtitle2>"Profile photo"</Subtitle2>
                                                     <ProfilePhotoDisplay
-                                                        photo_url=photo_url_prop
+                                                        photo_file_id=photo_file_id_prop
                                                         display_name=display_name_signal
                                                     />
                                                     <ProfilePhotoUpload
@@ -239,11 +237,13 @@ pub fn ProfilePage() -> impl IntoView {
                                                     />
                                                 </Flex>
                                                 </div>
+                                                </CardContent>
                                             </Card>
 
                                             <ActionForm action=update_action>
                                                 <Card>
-                                                    <Flex vertical=true gap=FlexGap::Medium padding=SpacingInset::all_l()>
+                                                    <CardContent>
+                                                    <Flex vertical=true gap=FlexGap::Medium>
                                                         <Subtitle2>"Display name"</Subtitle2>
                                                         <div data-testid="profile-display-name">
                                                             <Field label="Display Name" required=true>
@@ -265,6 +265,7 @@ pub fn ProfilePage() -> impl IntoView {
                                                             </Flex>
                                                         </div>
                                                     </Flex>
+                                                    </CardContent>
                                                 </Card>
                                             </ActionForm>
                                         </Flex>

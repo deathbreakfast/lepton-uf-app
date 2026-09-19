@@ -24,6 +24,7 @@ serde_json = { workspace = true }
 valence = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
 higgs = { workspace = true, optional = true }
+meson-leptos = { workspace = true, default-features = false }
 
 uf-product = { workspace = true, default-features = false }
 uf-integrations = { workspace = true, default-features = false }
@@ -35,6 +36,7 @@ lepton-identity = { workspace = true, optional = true }
 orbital-base-components = { workspace = true }
 orbital-theme = { workspace = true, default-features = false }
 orbital-macros = { workspace = true }
+orbital-primitives = { workspace = true, default-features = false }
 
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
@@ -59,7 +61,9 @@ hydrate = [
     "lepton-auth/hydrate",
     "lepton-auth-ui/hydrate",
     "lepton-shell/hydrate",
-    "orbital-theme/hydrate"]
+    "orbital-theme/hydrate",
+    "orbital-primitives/hydrate",
+    "meson-leptos/hydrate"]
 ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
@@ -69,6 +73,8 @@ ssr = [
     "dep:chrono",
     "dep:higgs",
     "dep:lepton-identity",
+    "meson-leptos/ssr",
+    "orbital-primitives/ssr",
     "higgs/ssr",
     "uf-product/ssr",
     "uf-integrations/ssr",
