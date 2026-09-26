@@ -19,11 +19,9 @@ use lepton_auth_ui::ConfirmAccountPrompt;
 use leptos::prelude::*;
 #[cfg(not(feature = "hydrate"))]
 use leptos_router::hooks::use_location;
-use leptos_router::hooks::use_navigate;
 use password::ChangePasswordCard;
 use uf_product::components::{ContentContainer, Title3};
 use uf_product::primitives::*;
-use uf_product::use_auth_state;
 
 use crate::connected_accounts_section::ConnectedAccountsSection;
 use crate::devices_section::SecurityDevicesSection;
@@ -31,16 +29,10 @@ use crate::totp_section::TotpSettingsSection;
 use crate::wipe_section::AccountWipeSection;
 
 /// `/user/account-settings` page: overview, change password, email change/verification.
+///
+/// The lazy route wraps this view in [`uf_product::routes::RequireAuthenticated`].
 #[component]
 pub fn AccountSettingsPage() -> impl IntoView {
-    let auth_state = use_auth_state();
-    let navigate = use_navigate();
-    Effect::new(move |_| {
-        if !auth_state.with(|s| s.is_authenticated()) {
-            navigate(lepton_auth::paths::SIGNIN, Default::default());
-        }
-    });
-
     #[cfg(not(feature = "hydrate"))]
     let location = use_location();
     let overview = Resource::new(|| (), |_| get_account_settings_overview());

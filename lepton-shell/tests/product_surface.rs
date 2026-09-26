@@ -4,6 +4,8 @@
 //! `lepton-auth-app` when host integration deps are mid-churn. Domain happy/sad
 //! for wipe / TOTP / OAuth / confirm stay in the lepton kit.
 
+#![allow(clippy::expect_used)]
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -348,21 +350,28 @@ fn appearance_anon_redirects_to_signin_sad_path() {
 
 #[test]
 fn account_settings_anon_redirects_to_signin_sad_path() {
-    let settings = read_app_module("account_settings", &["mod.rs"]);
+    let lazy_routes = read_app("lazy_routes.rs");
+    let block = lazy_routes
+        .split("struct AccountSettingsRoute")
+        .nth(1)
+        .and_then(|rest| rest.split("struct ConfirmAccountRoute").next())
+        .expect("AccountSettingsRoute route struct missing");
     assert!(
-        settings.contains("is_authenticated")
-            && (settings.contains("lepton_auth::paths::SIGNIN") || settings.contains("SIGNIN")),
-        "anonymous account-settings visits must navigate to sign-in"
+        block.contains("RequireAuthenticated"),
+        "anonymous account-settings visits must be gated by RequireAuthenticated"
     );
 }
 
 #[test]
 fn confirm_account_anon_redirects_to_signin_sad_path() {
-    let confirm = read_app("confirm_account.rs");
+    let lazy_routes = read_app("lazy_routes.rs");
+    let block = lazy_routes
+        .split("struct ConfirmAccountRoute")
+        .nth(1)
+        .expect("ConfirmAccountRoute route struct missing");
     assert!(
-        confirm.contains("is_authenticated")
-            && (confirm.contains("lepton_auth::paths::SIGNIN") || confirm.contains("SIGNIN")),
-        "anonymous confirm-account visits must navigate to sign-in"
+        block.contains("RequireAuthenticated"),
+        "anonymous confirm-account visits must be gated by RequireAuthenticated"
     );
 }
 

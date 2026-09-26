@@ -54,7 +54,12 @@ impl LazyRoute for AccountSettingsRoute {
     }
 
     fn view(_this: Self) -> AnyView {
-        view! { <AccountSettingsPage /> }.into_any()
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <AccountSettingsPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
     }
 }
 
@@ -69,6 +74,11 @@ impl LazyRoute for ConfirmAccountRoute {
     }
 
     fn view(_this: Self) -> AnyView {
-        view! { <ConfirmAccountPage /> }.into_any()
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <ConfirmAccountPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
     }
 }
