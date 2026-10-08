@@ -270,6 +270,7 @@ uf_app! {
     version: "0.2.0",
     routes: UserAppRoutes,
     route_path: "/user/account-settings",
+    repository: "https://github.com/unified-field-dev/lepton-uf-app",
 }
 
 /// Nested `/user` routes for a Unified Field host `Router` / `Routes` tree.

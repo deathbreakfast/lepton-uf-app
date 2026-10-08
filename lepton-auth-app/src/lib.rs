@@ -201,4 +201,5 @@ uf_app! {
     version: "0.2.0",
     routes: LeptonAuthRoutes,
     route_path: "/auth/signin",
+    repository: "https://github.com/unified-field-dev/lepton-uf-app",
 }
