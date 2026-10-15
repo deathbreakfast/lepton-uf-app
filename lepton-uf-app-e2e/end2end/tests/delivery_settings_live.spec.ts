@@ -15,7 +15,7 @@ type Page = import("@playwright/test").Page;
 function need(name: string): string {
   const v = process.env[name];
   if (!v) {
-    throw new Error(`missing env ${name} (see uf-live-cloud-lab/lepton/README.md)`);
+    throw new Error(`missing env ${name} (set it in the operator shell before running this spec)`);
   }
   return v;
 }
