@@ -1,10 +1,10 @@
 /**
  * Live provider run of the "Sign-in and delivery" page against a deployed cell.
  *
- * Skipped unless `UF_LIVE_DELIVERY=1`. Driven by `uf-live-cloud-lab`
- * (`live-lepton-delivery-from-neutrino`); credentials come from the operator's
- * shell, never from this repo. A provider accepting the test message is the
- * assertion: the spec does not read an inbox or a phone.
+ * Skipped unless `UF_LIVE_DELIVERY=1`. Driven by operator tooling maintained
+ * separately; credentials come from the operator's shell, never from this repo.
+ * A provider accepting the test message is the assertion: the spec does not
+ * read an inbox or a phone.
  */
 import { test, expect, clickTestId, waitForAppReady, authDialog, fillAndSubmitSignIn } from "./fixtures";
 import { FreshCodes } from "./helpers/fresh_totp";
