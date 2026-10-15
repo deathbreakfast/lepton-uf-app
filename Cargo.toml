@@ -141,6 +141,9 @@ lepton-host-adapter = { git = "https://github.com/unified-field-dev/lepton", bra
 # DeliveryRuntime on this host.
 lepton-e2e = { git = "https://github.com/unified-field-dev/lepton", branch = "main", default-features = false }
 lepton-test-support = { git = "https://github.com/unified-field-dev/lepton", branch = "main", default-features = false }
+gauge = { git = "https://github.com/unified-field-dev/gauge", branch = "main", default-features = false }
+neutrino = { git = "https://github.com/unified-field-dev/neutrino", branch = "main", default-features = false }
+uf-lepton-delivery-boot = { git = "https://github.com/unified-field-dev/uf-oauth-boot", package = "uf-lepton-delivery-boot", branch = "main" }
 lepton-shell = { path = "lepton-shell", default-features = false }
 lepton-auth-app = { path = "lepton-auth-app" }
 lepton-app = { path = "lepton-app" }

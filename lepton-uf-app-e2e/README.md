@@ -99,6 +99,25 @@ Shared Playwright helpers live in [`end2end/shared/`](end2end/shared/) (`seedTes
 | `account_wipe_totp.spec.ts` | `pw-account-wipe-totp-happy`, `pw-account-wipe-totp-bad-code-sad` |
 | `totp_enroll.spec.ts` | `pw-totp-enroll-happy`, `pw-totp-enroll-bad-code-sad` |
 | `oauth_link_settings.spec.ts` | `pw-oauth-link-google-happy`, `pw-oauth-link-account-taken-sad` |
+| `delivery_settings.spec.ts` | `pw-lepton-delivery-settings-happy`, `pw-lepton-delivery-settings-denied-sad`, `pw-lepton-delivery-settings-test-send-failed-sad`, `pw-lepton-delivery-settings-stepup-sad` |
+
+## Sign-in and delivery
+
+The page at `/user/delivery` runs on the same boot a cell uses. The host seeds its
+delivery settings from env once (Mailpit for mail, the mocks below for SendGrid and
+Twilio Verify, the mock IdP for OAuth), keeps the secrets in Neutrino, and applies a
+saved change without a restart. Writes ask for a fresh authenticator code, so a spec
+that saves twice waits for the next 30 second step.
+
+Lab-only routes, never mounted on a production host:
+
+| Route | Role |
+|-------|------|
+| `POST /api/test/delivery-admin` | Adds a user (by email) to `lepton.delivery.admins`, standing in for an operator on a cell |
+| `POST /mock/sendgrid/v3/mail/send` | SendGrid stand-in that records the `Authorization` header and recipient |
+| `POST /mock/twilio/v2/Services/{sid}/Verifications` | Twilio Verify stand-in; also forwards the code to the SMS sink so OTP reads keep working |
+| `GET /api/test/mock-providers` | What the mocks received |
+| `POST /api/test/mock-providers/reset` and `.../fail/{provider}/{status}` | Clear the record; make a provider answer with a status |
 
 `pw-account-change-email-happy` requires Mailpit and asserts “Verification sent…” plus a message to the new address.
 

@@ -238,9 +238,11 @@ mod appearance;
 mod appearance_preview;
 mod confirm_account;
 mod connected_accounts_section;
+mod delivery_settings;
 mod devices_section;
 mod layout;
 mod lazy_routes;
+mod permissions;
 mod profile;
 mod profile_photo_display;
 mod profile_photo_upload;
@@ -251,11 +253,17 @@ pub use account_settings::AccountSettingsPage;
 pub use appearance::AppearancePage;
 pub use confirm_account::ConfirmAccountPage;
 pub use connected_accounts_section::ConnectedAccountsSection;
+pub use delivery_settings::{
+    get_delivery_settings, rotate_totp_seal_key, save_email_settings, save_oauth_settings,
+    save_sms_settings, test_send_email, test_send_sms, DeliverySettingsPage,
+};
 pub use devices_section::SecurityDevicesSection;
 pub use layout::UserLayout;
 pub use lazy_routes::{
-    prefetch_family, AccountSettingsRoute, AppearanceRoute, ConfirmAccountRoute, ProfileRoute,
+    prefetch_family, AccountSettingsRoute, AppearanceRoute, ConfirmAccountRoute,
+    DeliverySettingsRoute, ProfileRoute,
 };
+pub use permissions::LeptonPermission;
 pub use profile::{
     get_my_profile, update_my_profile, validate_display_name, ProfileData, ProfilePage,
     MAX_DISPLAY_NAME_CHARS,
@@ -271,6 +279,7 @@ uf_app! {
     routes: UserAppRoutes,
     route_path: "/user/account-settings",
     repository: "https://github.com/unified-field-dev/lepton-uf-app",
+    permission_manifest: permissions::LeptonPermission,
 }
 
 /// Nested `/user` routes for a Unified Field host `Router` / `Routes` tree.
@@ -297,6 +306,7 @@ pub fn UserAppRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("appearance") view={Lazy::<AppearanceRoute>::new()} />
             <Route path=path!("account-settings") view={Lazy::<AccountSettingsRoute>::new()} />
             <Route path=path!("confirm-account") view={Lazy::<ConfirmAccountRoute>::new()} />
+            <Route path=path!("delivery") view={Lazy::<DeliverySettingsRoute>::new()} />
         </ParentRoute>
     }
     .into_inner()

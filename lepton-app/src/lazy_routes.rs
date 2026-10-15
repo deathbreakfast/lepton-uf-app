@@ -6,6 +6,7 @@ use leptos_router::{lazy_route, LazyRoute};
 use crate::account_settings::AccountSettingsPage;
 use crate::appearance::AppearancePage;
 use crate::confirm_account::ConfirmAccountPage;
+use crate::delivery_settings::DeliverySettingsPage;
 use crate::profile::ProfilePage;
 
 /// Prefetch the user settings family WASM chunk (leaf pages share split modules).
@@ -77,6 +78,26 @@ impl LazyRoute for ConfirmAccountRoute {
         view! {
             <uf_product::routes::RequireAuthenticated>
                 <ConfirmAccountPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
+    }
+}
+
+/// Lazy `/user/delivery` page (Sign-in and delivery).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DeliverySettingsRoute;
+
+#[lazy_route]
+impl LazyRoute for DeliverySettingsRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <DeliverySettingsPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()

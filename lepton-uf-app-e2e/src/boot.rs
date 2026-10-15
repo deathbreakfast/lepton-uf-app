@@ -18,12 +18,10 @@ use async_trait::async_trait;
 use higgs::{HiggsConfig, HiggsValenceFactory};
 use lepton_auth::services::LeptonAuthServicesBuilder;
 use lepton_host_adapter::Backend;
-use lepton_sms::{HttpCaptureSmsConfig, SmsServiceBuilder};
-use lepton_smtp::{EmailServiceBuilder, SmtpConfig};
 use valence::{
     register_backend_logical_names_slices, router_key, Actor, CompiledQuery, DatabaseBackend,
     DatabaseRouter, InMemoryBackend, RecordId, RegisterBackendLogicalNamesOptions, Valence,
-    MEM_ENGINE_ID,
+    MEM_ENGINE_ID, SQLITE_ENGINE_ID,
 };
 
 /// Shared process state for Axum + Leptos.
@@ -222,12 +220,66 @@ impl DatabaseBackend for TolerantMemBackend {
     }
 }
 
-/// Open in-memory Valence, register identity schemas, build Higgs + auth services.
-#[allow(clippy::too_many_lines)] // platform boot: valence + schemas + Higgs + auth services
-pub fn boot_platform() -> anyhow::Result<(
+/// Lab defaults for first-boot env seeding, applied only when unset.
+///
+/// The cell seeds its delivery settings from env once, exactly as a real host
+/// does. Mail starts on Mailpit, text messages and SendGrid on the lab mocks in
+/// [`crate::mock_providers`], and OAuth on the mock IdP.
+fn seed_lab_env_defaults() {
+    const DEFAULTS: &[(&str, &str)] = &[
+        ("UF_EMAIL_DRIVER", "smtp"),
+        ("UF_SMTP_HOST", "127.0.0.1"),
+        ("UF_SMTP_PORT", "1025"),
+        ("UF_SMTP_USE_TLS", "0"),
+        ("UF_EMAIL_FROM", "noreply@example.test"),
+        ("UF_EMAIL_FROM_NAME", "Lepton Auth"),
+        (
+            "UF_SENDGRID_API_BASE_URL",
+            "http://127.0.0.1:3140/mock/sendgrid",
+        ),
+        (
+            "UF_TWILIO_API_BASE_URL",
+            "http://127.0.0.1:3140/mock/twilio",
+        ),
+        (
+            "UF_TWILIO_ACCOUNT_SID",
+            "ACe2e00000000000000000000000000000",
+        ),
+        ("UF_TWILIO_API_KEY", "SKe2e00000000000000000000000000000"),
+        ("UF_TWILIO_API_SECRET", "lab-initial-twilio-secret"),
+        (
+            "UF_TWILIO_VERIFY_SERVICE_SID",
+            "VAe2e00000000000000000000000000000",
+        ),
+        ("UF_OAUTH_USE_MOCK", "1"),
+        // Lab-only vault master key (64 hex zeros). Never reuse outside this host.
+        (
+            "NEUTRINO_MASTER_KEY",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        ),
+    ];
+    for (key, value) in DEFAULTS {
+        if std::env::var_os(key).is_none() {
+            std::env::set_var(key, value);
+        }
+    }
+    if std::env::var_os("UF_MOCK_OIDC_URL").is_none() {
+        std::env::set_var("UF_MOCK_OIDC_URL", "http://127.0.0.1:5556");
+    }
+}
+
+/// Open in-memory Valence, register identity, Gauge and Neutrino schemas, install
+/// delivery settings, build Higgs + auth services.
+///
+/// # Errors
+///
+/// Returns when Higgs, the auth services or delivery settings cannot be built.
+#[allow(clippy::too_many_lines)] // platform boot: valence + schemas + Higgs + delivery + auth
+pub async fn boot_platform() -> anyhow::Result<(
     AppState,
     Backend,
     Arc<lepton_auth::services::LeptonAuthServices>,
+    uf_lepton_delivery_boot::DeliveryBoot,
 )> {
     // Force-link identity inventory schemas.
     let _ = lepton_identity::generated::UserStatus::Active;
@@ -244,15 +296,24 @@ pub fn boot_platform() -> anyhow::Result<(
     {
         std::env::set_var("LEPTON_TOTP_ALLOW_TEST_SEAL_KEY", "1");
     }
+    seed_lab_env_defaults();
 
     let backend: Arc<dyn DatabaseBackend> = Arc::new(TolerantMemBackend::new());
     let mut router = DatabaseRouter::new();
+    // Identity schemas declare the SQLite engine id; Gauge and Neutrino keep their own
+    // logical names. One tolerant mem backend serves all of them.
     register_backend_logical_names_slices(
         &mut router,
-        backend,
-        &[&["default"]],
-        RegisterBackendLogicalNamesOptions::default(),
+        Arc::clone(&backend),
+        &[
+            &["default"],
+            neutrino::embedded_surreal::EMBEDDED_SURREAL_LOGICAL_NAMES,
+        ],
+        RegisterBackendLogicalNamesOptions {
+            register_alias_engine_id: Some(SQLITE_ENGINE_ID),
+        },
     );
+    gauge::embedded_surreal::register_storage(&mut router, backend);
     let default_backend_key = router_key("default", MEM_ENGINE_ID);
     let valence_router = Arc::new(router);
 
@@ -267,47 +328,29 @@ pub fn boot_platform() -> anyhow::Result<(
             .context("HiggsConfig")?,
     );
 
-    // Mailpit SMTP (plain) for confirm-funnel Playwright; see infra/mailpit.
-    let email = EmailServiceBuilder::new()
-        .smtp(
-            SmtpConfig::builder()
-                .host("127.0.0.1")
-                .port(1025)
-                .use_tls(false)
-                .from_email("noreply@example.test")
-                .from_name("Lepton Auth")
-                .build()?,
-        )
-        .build()?;
-    // SMS HTTP sink on :8099 (spawned from main); HttpCapture adapter for OTP asserts.
-    let sms = SmsServiceBuilder::new()
-        .http_capture(HttpCaptureSmsConfig::new("http://127.0.0.1:8099")?)
-        .build()?;
-    let mock_issuer = std::env::var("UF_MOCK_OIDC_URL")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "http://127.0.0.1:5556".into());
-    let oauth = lepton_auth::oauth::OAuthClientConfig {
-        public_base_url: "http://localhost:3140".into(),
-        redirect_path: "/auth/oauth/callback".into(),
-        google_client_id: None,
-        google_client_secret: None,
-        github_client_id: None,
-        github_client_secret: None,
-        use_mock_provider: true,
-        mock_oidc_issuer_url: Some(mock_issuer),
-        google_token_url: None,
-        google_userinfo_url: None,
-        github_token_url: None,
-        github_user_url: None,
-        github_emails_url: None,
-    };
+    // Gauge permissions, then delivery settings, under the System Valence the host booted with.
+    gauge::touch_schema_inventory();
+    let system = system_valence(Arc::clone(&valence_router), &default_backend_key)?;
+    system
+        .sync_typed_tables_from_registry()
+        .await
+        .map_err(|e| anyhow::anyhow!("sync typed tables: {e}"))?;
+    crate::permissions::sync_registered_manifests(&system)
+        .await
+        .context("permission manifest sync")?;
+    let delivery = uf_lepton_delivery_boot::install_delivery(
+        &system,
+        uf_lepton_delivery_boot::DeliveryOptions::new("http://localhost:3140"),
+    )
+    .await
+    .context("install delivery settings")?;
+
     let auth_services = Arc::new(
         LeptonAuthServicesBuilder::new()
-            .email(email)
-            .sms(sms)
+            .email(delivery.email())
+            .sms(delivery.sms())
             .public_base_url("http://localhost:3140")
-            .oauth(oauth)
+            .oauth_handle(delivery.oauth())
             .webauthn_rp(lepton_auth::devices::WebauthnRpConfig {
                 // Match Playwright origin (`http://localhost:3140`).
                 rp_id: "localhost".into(),
@@ -327,7 +370,7 @@ pub fn boot_platform() -> anyhow::Result<(
         valence_router,
         default_backend_key,
     };
-    Ok((state, auth_backend, auth_services))
+    Ok((state, auth_backend, auth_services, delivery))
 }
 
 /// System Valence for seed / bootstrap.

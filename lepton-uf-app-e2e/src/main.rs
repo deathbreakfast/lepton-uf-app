@@ -13,7 +13,7 @@ use axum::routing::post;
 use axum::{Extension, Router};
 use axum_login::AuthManagerLayerBuilder;
 use lepton_auth::services::provide_auth_services;
-use lepton_host_adapter::files::{files_routes, FileByteBackend, FilesConfig, LocalDiskBlobStore};
+use lepton_host_adapter::files::{blob_stores_from_env, files_routes, FilesConfig};
 use lepton_host_adapter::session_snapshot_middleware;
 use lepton_uf_app_e2e::app::{shell, App};
 use lepton_uf_app_e2e::boot::boot_platform;
@@ -43,7 +43,9 @@ async fn main() -> anyhow::Result<()> {
     // Lab SMS HTTP sink on :8099 (reuse if already bound).
     spawn_sms_sink_sidecar().await?;
 
-    let (state, backend, auth_services) = boot_platform()?;
+    let (state, backend, auth_services, delivery) = boot_platform().await?;
+    let delivery_backend = delivery.settings_backend();
+    let mock_providers = Arc::new(lepton_uf_app_e2e::mock_providers::MockProviders::default());
     let leptos_options = state.leptos_options.clone();
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
@@ -61,15 +63,21 @@ async fn main() -> anyhow::Result<()> {
     let state_shell = state.clone();
     let valence_router = Arc::clone(&state.valence_router);
     let auth_services_for_ctx = Arc::clone(&auth_services);
-    let file_store: Arc<dyn FileByteBackend> = Arc::new(LocalDiskBlobStore::default_uploads());
+    // Lepton holds uploads in a quarantine store until the scanner clears them.
+    let file_layout = blob_stores_from_env()?;
     let files_config = FilesConfig::new(state.default_backend_key.clone());
 
     let app = Router::new()
-        .merge(files_routes(file_store, files_config))
+        .merge(files_routes(file_layout, files_config))
         .route(
             "/api/test/seed-data",
             post(seed_data::<lepton_uf_app_e2e::boot::AppState>),
         )
+        .route(
+            "/api/test/delivery-admin",
+            post(lepton_uf_app_e2e::seed::delivery_admin),
+        )
+        .merge(lepton_uf_app_e2e::mock_providers::routes())
         .route(
             "/health",
             axum::routing::get(|| async { axum::http::StatusCode::OK }),
@@ -80,6 +88,11 @@ async fn main() -> anyhow::Result<()> {
             move || {
                 provide_context(Arc::clone(&higgs));
                 provide_auth_services(Arc::clone(&auth_services_for_ctx));
+                provide_context(Arc::clone(&delivery_backend));
+                // The permission backend is read from the request's reactive owner.
+                uf_product::permissions::provide_permission_backend(Arc::new(
+                    lepton_uf_app_e2e::permissions::LabPermissionBackend,
+                ));
             },
             move || {
                 let options = LeptosOptions::from_ref(&state_shell);
@@ -93,10 +106,13 @@ async fn main() -> anyhow::Result<()> {
         .layer(from_fn(session_snapshot_middleware))
         .layer(auth_layer)
         .layer(Extension(valence_router))
+        .layer(Extension(mock_providers))
         .with_state(state);
 
     tracing::info!(%addr, "lepton-uf-app-e2e listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Keep the delivery refresher alive for the life of the server.
+    let _delivery = delivery;
     axum::serve(listener, app).await?;
     Ok(())
 }

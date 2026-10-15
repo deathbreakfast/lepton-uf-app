@@ -27,6 +27,10 @@ lepton-sms = { workspace = true, optional = true }
 # Harness sidecars (mock OIDC, SMS sink) and the seed HTTP handler.
 lepton-e2e = { workspace = true, optional = true, default-features = false }
 lepton-test-support = { workspace = true, optional = true, default-features = false, features = ["axum"] }
+# Delivery settings (P27): Neutrino-backed settings, the gated page's backend, and Gauge permissions.
+gauge = { workspace = true, optional = true, features = ["ssr"] }
+neutrino = { workspace = true, optional = true, features = ["ssr"] }
+uf-lepton-delivery-boot = { workspace = true, optional = true }
 
 leptos = { workspace = true }
 leptos_meta = { workspace = true }
@@ -117,6 +121,9 @@ ssr = [
     "dep:lepton-sms",
     "dep:lepton-e2e",
     "dep:lepton-test-support",
+    "dep:gauge",
+    "dep:neutrino",
+    "dep:uf-lepton-delivery-boot",
     "higgs/ssr",
     "lepton-shell/ssr",
     "lepton-app/ssr",
