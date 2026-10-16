@@ -41,6 +41,7 @@ pub fn UserLayout() -> impl IntoView {
                         <NavigationLink path=paths::APPEARANCE value=paths::APPEARANCE icon=icondata::AiEyeOutlined test_id="nav-lepton-appearance">"Appearance"</NavigationLink>
                         <NavigationLink path=paths::ACCOUNT_SETTINGS value=paths::ACCOUNT_SETTINGS icon=icondata::AiSettingOutlined test_id="nav-user-account-settings">"Account Settings"</NavigationLink>
                         <NavigationLink path=paths::DELIVERY value=paths::DELIVERY icon=icondata::AiMailOutlined test_id="nav-user-delivery">"Sign-in and delivery"</NavigationLink>
+                        <NavigationLink path=paths::BOTS value=paths::BOTS icon=icondata::AiRobotOutlined test_id="nav-user-bots">"Bots"</NavigationLink>
                     </NavigationBody>
                 </Navigation>
             </ShellLeftNav>

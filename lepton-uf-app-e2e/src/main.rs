@@ -63,6 +63,8 @@ async fn main() -> anyhow::Result<()> {
     let state_shell = state.clone();
     let valence_router = Arc::clone(&state.valence_router);
     let auth_services_for_ctx = Arc::clone(&auth_services);
+    let lab_tokens = Arc::new(lepton_uf_app_e2e::bots::LabTokens::default());
+    let lab_tokens_for_ctx = Arc::clone(&lab_tokens);
     // Lepton holds uploads in a quarantine store until the scanner clears them.
     let file_layout = blob_stores_from_env()?;
     let files_config = FilesConfig::new(state.default_backend_key.clone());
@@ -77,6 +79,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/test/delivery-admin",
             post(lepton_uf_app_e2e::seed::delivery_admin),
         )
+        .route("/api/test/bots", post(lepton_uf_app_e2e::bots::bot_lab))
         .merge(lepton_uf_app_e2e::mock_providers::routes())
         .route(
             "/health",
@@ -93,6 +96,9 @@ async fn main() -> anyhow::Result<()> {
                 uf_product::permissions::provide_permission_backend(Arc::new(
                     lepton_uf_app_e2e::permissions::LabPermissionBackend,
                 ));
+                lepton_app::bots::provide_bot_access_backend(Arc::new(
+                    lepton_uf_app_e2e::bots::LabBotAccess::new(Arc::clone(&lab_tokens_for_ctx)),
+                ));
             },
             move || {
                 let options = LeptosOptions::from_ref(&state_shell);
@@ -107,6 +113,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(auth_layer)
         .layer(Extension(valence_router))
         .layer(Extension(mock_providers))
+        .layer(Extension(lab_tokens))
         .with_state(state);
 
     tracing::info!(%addr, "lepton-uf-app-e2e listening");

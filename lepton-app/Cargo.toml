@@ -33,6 +33,8 @@ lepton-auth = { workspace = true, default-features = false }
 lepton-auth-ui = { workspace = true, default-features = false }
 lepton-shell = { workspace = true, default-features = false }
 lepton-identity = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 orbital-base-components = { workspace = true }
 orbital-theme = { workspace = true, default-features = false }
 orbital-macros = { workspace = true }
@@ -73,6 +75,8 @@ ssr = [
     "dep:chrono",
     "dep:higgs",
     "dep:lepton-identity",
+    "dep:async-trait",
+    "dep:tracing",
     "meson-leptos/ssr",
     "orbital-primitives/ssr",
     "higgs/ssr",

@@ -117,6 +117,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+
+[[package]]
 name = "asn1-rs"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -397,12 +403,81 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.8.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d9e454fc11f76977dc803893aff6304ed33d6a26efae8696573bea74baa27ae"
+dependencies = [
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq 0.4.2",
+ "cpufeatures 0.3.1",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "boson-core"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/boson?branch=main#3af2ba3ba83b7369cd87f8aa4a8926bcdc009c90"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "uuid",
+]
+
+[[package]]
+name = "boson-macros"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/boson?branch=main#3af2ba3ba83b7369cd87f8aa4a8926bcdc009c90"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "boson-runtime"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/boson?branch=main#3af2ba3ba83b7369cd87f8aa4a8926bcdc009c90"
+dependencies = [
+ "async-trait",
+ "boson-core",
+ "boson-telemetry",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "uf-quark",
+]
+
+[[package]]
+name = "boson-telemetry"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/boson?branch=main#3af2ba3ba83b7369cd87f8aa4a8926bcdc009c90"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "boson-valence-identity"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/boson-valence-identity?branch=main#26ed6e7259c029613b9d32c3e888776e91c27d83"
+dependencies = [
+ "boson-core",
+ "serde",
+ "serde_json",
+ "uf-valence",
 ]
 
 [[package]]
@@ -521,6 +596,112 @@ dependencies = [
  "serde",
  "wasm-bindgen",
  "windows-link",
+]
+
+[[package]]
+name = "chrono-tz"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6139a8597ed92cf816dfb33f5dd6cf0bb93a6adc938f11039f371bc5bcd26c3"
+dependencies = [
+ "chrono",
+ "phf 0.12.1",
+]
+
+[[package]]
+name = "chronon-coordinator"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/chronon-coordinator?branch=main#43ee393f33270ee6d07bd610a85aa5804621c921"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "chronon-core",
+ "chronon-executor",
+ "chronon-scheduler",
+ "log",
+ "serde",
+ "serde_json",
+ "uf-quark",
+ "uf-valence",
+]
+
+[[package]]
+name = "chronon-coordinator-macros"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/chronon-coordinator-macros?branch=main#e5a525806ccec70c95e150a22cc94aa71c23f831"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "chronon-core"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/chronon?branch=main#25f4c532d00dec8f9748014e7183b6c4a77c6f0b"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "uuid",
+]
+
+[[package]]
+name = "chronon-executor"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/chronon?branch=main#25f4c532d00dec8f9748014e7183b6c4a77c6f0b"
+dependencies = [
+ "chrono",
+ "chronon-core",
+ "chronon-telemetry",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uf-quark",
+]
+
+[[package]]
+name = "chronon-scheduler"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/chronon?branch=main#25f4c532d00dec8f9748014e7183b6c4a77c6f0b"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "chronon-core",
+ "chronon-telemetry",
+ "croner",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+ "xxhash-rust",
+]
+
+[[package]]
+name = "chronon-telemetry"
+version = "0.1.4"
+source = "git+https://github.com/unified-field-dev/chronon?branch=main#25f4c532d00dec8f9748014e7183b6c4a77c6f0b"
+dependencies = [
+ "parking_lot",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "chronon-valence-identity"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/chronon-valence-identity?branch=main#3559594397b4d5197a592ae190a69952f52d61c7"
+dependencies = [
+ "chronon-core",
+ "serde_json",
+ "uf-valence",
 ]
 
 [[package]]
@@ -656,6 +837,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
+name = "constant_time_eq"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -765,6 +952,15 @@ name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
+
+[[package]]
+name = "croner"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c344b0690c1ad1c7176fe18eb173e0c927008fdaaa256e40dfd43ddd149c0843"
+dependencies = [
+ "chrono",
+]
 
 [[package]]
 name = "crossbeam-channel"
@@ -1308,6 +1504,39 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "gauge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "chronon-coordinator",
+ "chronon-coordinator-macros",
+ "chronon-core",
+ "chronon-executor",
+ "chronon-valence-identity",
+ "higgs",
+ "higgs-host",
+ "inventory",
+ "lepton",
+ "lepton-identity",
+ "leptos",
+ "log",
+ "record-history",
+ "serde",
+ "serde_json",
+ "uf-notifications-core",
+ "uf-product-macros",
+ "uf-quark",
+ "uf-search-core",
+ "uf-spectra",
+ "uf-spectra-core",
+ "uf-valence",
+ "uf-valence-codegen",
+ "uuid",
 ]
 
 [[package]]
@@ -2194,9 +2423,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lepton"
+version = "0.1.0"
+dependencies = [
+ "lepton-host-adapter",
+]
+
+[[package]]
 name = "lepton-app"
 version = "0.2.0"
 dependencies = [
+ "async-trait",
  "cfg-if",
  "chrono",
  "higgs",
@@ -2219,6 +2456,7 @@ dependencies = [
  "orbital-theme",
  "serde",
  "serde_json",
+ "tracing",
  "uf-integrations",
  "uf-product",
  "uf-product-macros",
@@ -2232,7 +2470,6 @@ dependencies = [
 [[package]]
 name = "lepton-auth"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2321,7 +2558,6 @@ dependencies = [
 [[package]]
 name = "lepton-auth-ui"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "cfg-if",
  "lepton-auth",
@@ -2339,7 +2575,6 @@ dependencies = [
 [[package]]
 name = "lepton-e2e"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2364,7 +2599,6 @@ dependencies = [
 [[package]]
 name = "lepton-host-adapter"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2397,7 +2631,6 @@ dependencies = [
 [[package]]
 name = "lepton-identity"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2442,9 +2675,9 @@ dependencies = [
 [[package]]
 name = "lepton-sms"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -2456,12 +2689,13 @@ dependencies = [
 [[package]]
 name = "lepton-smtp"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "async-trait",
  "hickory-resolver",
  "lettre",
+ "reqwest",
  "serde",
+ "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -2470,7 +2704,6 @@ dependencies = [
 [[package]]
 name = "lepton-test-support"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/lepton?branch=main#089094034643f345a4809e2372c17b71e57e5fb9"
 dependencies = [
  "axum",
  "chrono",
@@ -2494,6 +2727,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "console_error_panic_hook",
+ "gauge",
  "getrandom 0.2.17",
  "higgs",
  "higgs-identity",
@@ -2512,6 +2746,7 @@ dependencies = [
  "leptos_axum",
  "leptos_meta",
  "leptos_router",
+ "neutrino",
  "reqwest",
  "serde",
  "serde_json",
@@ -2522,6 +2757,7 @@ dependencies = [
  "tracing-subscriber",
  "tracing-wasm",
  "uf-integrations",
+ "uf-lepton-delivery-boot",
  "uf-product",
  "uf-valence",
  "url",
@@ -2986,13 +3222,21 @@ name = "meson"
 version = "0.1.0"
 source = "git+https://github.com/unified-field-dev/meson?branch=main#54672001a7f8c16f2d7e8e0162c2cfa31adf24a9"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "boson-core",
+ "boson-macros",
+ "boson-runtime",
+ "boson-valence-identity",
  "chrono",
+ "futures",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
+ "uf-photon",
+ "uf-quark",
  "uf-valence",
  "uf-valence-codegen",
  "uuid",
@@ -3098,6 +3342,47 @@ name = "ndk-context"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b"
+
+[[package]]
+name = "neutrino"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/neutrino?branch=main#6eb11aaaec5ff7e7e409d6e7f68af7f0b2e96fef"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "async-trait",
+ "base64 0.22.1",
+ "blake3",
+ "chacha20poly1305",
+ "chrono",
+ "gauge",
+ "log",
+ "neutrino-spectra-telemetry",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "uf-spectra",
+ "uf-spectra-core",
+ "uf-valence",
+ "uf-valence-codegen",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
+name = "neutrino-spectra-telemetry"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/neutrino?branch=main#6eb11aaaec5ff7e7e409d6e7f68af7f0b2e96fef"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "futures",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uf-spectra",
+ "uf-spectra-core",
+]
 
 [[package]]
 name = "new_debug_unreachable"
@@ -3789,6 +4074,15 @@ dependencies = [
 
 [[package]]
 name = "phf"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
+dependencies = [
+ "phf_shared 0.12.1",
+]
+
+[[package]]
+name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
@@ -3864,6 +4158,15 @@ name = "phf_shared"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
+dependencies = [
+ "siphasher",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
 dependencies = [
  "siphasher",
 ]
@@ -4484,6 +4787,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "record-history"
+version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/record-history?branch=main#41793aaf03df6a6888c466e40984da25d95e72e6"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "lepton",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uf-valence",
+ "uf-valence-codegen",
 ]
 
 [[package]]
@@ -5718,7 +6036,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50e69a15e21b2ff22c415446983978bded3244195f17d59cb113551c1e806f91"
 dependencies = [
  "base32",
- "constant_time_eq",
+ "constant_time_eq 0.3.1",
  "hmac",
  "sha1",
  "sha2",
@@ -6073,6 +6391,59 @@ dependencies = [
  "uf-search-core",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "uf-lepton-delivery-boot"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "gauge",
+ "getrandom 0.2.17",
+ "lepton",
+ "lepton-auth",
+ "lepton-host-adapter",
+ "lepton-sms",
+ "lepton-smtp",
+ "neutrino",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uf-oauth-boot",
+ "uf-valence",
+ "uf-valence-codegen",
+]
+
+[[package]]
+name = "uf-notifications-core"
+version = "0.3.0"
+source = "git+https://github.com/unified-field-dev/uf-notifications?branch=main#e4d0aab43cfca646327e1014c10fb02333014201"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "futures",
+ "lepton-identity",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uf-photon",
+ "uf-valence",
+ "uf-valence-codegen",
+ "uuid",
+]
+
+[[package]]
+name = "uf-oauth-boot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "lepton-auth",
+ "neutrino",
+ "tracing",
+ "uf-valence",
 ]
 
 [[package]]
@@ -7110,6 +7481,10 @@ dependencies = [
  "log",
  "simd-adler32",
 ]
+
+[[patch.unused]]
+name = "lepton-spectra-telemetry"
+version = "0.1.0"
 
 [[patch.unused]]
 name = "uf-valence-backend-hybrid"

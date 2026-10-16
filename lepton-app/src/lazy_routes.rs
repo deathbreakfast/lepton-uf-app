@@ -5,6 +5,7 @@ use leptos_router::{lazy_route, LazyRoute};
 
 use crate::account_settings::AccountSettingsPage;
 use crate::appearance::AppearancePage;
+use crate::bots::{BotTokenPage, BotsPage, CreateBotPage};
 use crate::confirm_account::ConfirmAccountPage;
 use crate::delivery_settings::DeliverySettingsPage;
 use crate::profile::ProfilePage;
@@ -98,6 +99,66 @@ impl LazyRoute for DeliverySettingsRoute {
         view! {
             <uf_product::routes::RequireAuthenticated>
                 <DeliverySettingsPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
+    }
+}
+
+/// Lazy `/user/bots` page.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BotsRoute;
+
+#[lazy_route]
+impl LazyRoute for BotsRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <BotsPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
+    }
+}
+
+/// Lazy `/user/bots/new` page.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BotNewRoute;
+
+#[lazy_route]
+impl LazyRoute for BotNewRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <CreateBotPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
+    }
+}
+
+/// Lazy `/user/bots/{bot_id}/token` page.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BotTokenRoute;
+
+#[lazy_route]
+impl LazyRoute for BotTokenRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <BotTokenPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()

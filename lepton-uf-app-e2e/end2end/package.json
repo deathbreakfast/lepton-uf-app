@@ -9,6 +9,7 @@
     "test:ui": "npm run wait-server && npx playwright test --ui --workers=1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.44.1",
     "@types/node": "^20.12.12",
     "otplib": "^12.0.1",

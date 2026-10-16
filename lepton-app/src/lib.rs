@@ -23,6 +23,9 @@
 //!   and owner wipe through **lepton-auth** server actions. [Guide](#account-settings)
 //! - **Confirm account page** — Provides a guided soft-confirm funnel under the user
 //!   settings shell for signed-in users. [Guide](#confirm-account-funnel)
+//! - **Bot management pages** — Let a signed-in person create bots, choose what
+//!   each one can do, and give it a token that is shown once. The host decides
+//!   the access choices and issues tokens. [Get started](#install-a-bot-access-backend)
 //! - **WASM route prefetch** — Warms lazy-loaded `/user` WASM chunks before first
 //!   navigation on split builds. [Guide](#lazy-route-prefetch)
 //!
@@ -196,6 +199,115 @@
 //! After prefetch, navigation to `/user/profile` avoids a visible chunk-load stall. Omit
 //! prefetch on SSR-only hosts that do not ship WASM splits.
 //!
+//! ## Install a bot access backend
+//!
+//! Provide a [`bots::BotAccessBackend`] on every request, next to the permission
+//! backend, so the Bots pages can offer access choices and mint tokens. Do it
+//! once per host, in the closure that provides per-request context to Leptos
+//! server functions. Without a backend the pages still list and create bots
+//! and say that the site can't give bots tokens yet.
+//!
+//! **Prerequisites:** `ssr` on this crate; [`UserAppRoutes`]
+//! mounted; a Lepton bot gate installed at boot; a token service that can issue
+//! a token owned by a bot.
+//!
+//! ```rust,ignore
+//! use std::sync::{Arc, Mutex};
+//!
+//! use lepton_app::bots::{
+//!     provide_bot_access_backend, AccessKind, BotAccessBackend, BotAccessChoice,
+//!     BotAccessError, ClientSetupStep, MintedToken, RevealOnce, TokenTtl,
+//! };
+//! use lepton_identity::bots::BotId;
+//! use valence::Valence;
+//!
+//! static CHOICES: &[BotAccessChoice] = &[BotAccessChoice {
+//!     key: "metrics-read",
+//!     label: "Read metrics",
+//!     summary: "read metrics",
+//!     help: "Joins Metric readers. Its token can query metrics.",
+//!     kind: AccessKind::GroupMembership { group_id: "metric_readers", group_name: "Metric readers" },
+//!     token_scopes: &["metrics:read"],
+//! }];
+//!
+//! /// Hands out tokens from memory and keeps group grants in Gauge.
+//! #[derive(Default)]
+//! struct SiteBots {
+//!     issued: Mutex<Vec<(String, Vec<&'static str>)>>,
+//! }
+//!
+//! #[async_trait::async_trait]
+//! impl BotAccessBackend for SiteBots {
+//!     fn choices(&self) -> &'static [BotAccessChoice] {
+//!         CHOICES
+//!     }
+//!
+//!     async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, BotAccessError> {
+//!         gauge::service::can_add_group_member_bot(group_id, v)
+//!             .await
+//!             .map_err(|_| BotAccessError::Store { reason_class: "gauge_lookup" })
+//!     }
+//!
+//!     async fn grant_group(
+//!         &self,
+//!         v: &Valence,
+//!         bot: &BotId,
+//!         group_id: &'static str,
+//!         choice: &'static str,
+//!     ) -> Result<(), BotAccessError> {
+//!         gauge::service::add_group_member_bot(group_id, bot, v)
+//!             .await
+//!             .map_err(|_| BotAccessError::NotGrantable { choice })
+//!     }
+//!
+//!     async fn mint_token(
+//!         &self,
+//!         _v: &Valence,
+//!         bot: &BotId,
+//!         _label: &str,
+//!         ttl: TokenTtl,
+//!         scopes: &[&'static str],
+//!     ) -> Result<MintedToken, BotAccessError> {
+//!         let secret = format!("site_{}", bot.as_str());
+//!         self.issued.lock().unwrap().push((secret.clone(), scopes.to_vec()));
+//!         Ok(MintedToken {
+//!             public_id: format!("tok_{}", bot.as_str()),
+//!             secret: RevealOnce::new(secret),
+//!             expires_at: chrono::Utc::now() + chrono::Duration::days(i64::from(ttl.days())),
+//!         })
+//!     }
+//!
+//!     fn client_setup(&self, handle: &str, _chosen: &[BotAccessChoice]) -> Vec<ClientSetupStep> {
+//!         vec![ClientSetupStep {
+//!             title: format!("Add @{handle} to Claude Code"),
+//!             code: "claude mcp add-json --scope user site '{\"type\":\"http\",\"url\":\"https://example.test/api/v1/mcp\",\"headers\":{\"Authorization\":\"Bearer ${SITE_BOT_TOKEN}\"}}'".into(),
+//!         }]
+//!     }
+//! }
+//!
+//! // Inside the host's per-request context closure:
+//! provide_bot_access_backend(Arc::new(SiteBots::default()));
+//! ```
+//!
+//! After this, `/user/bots/new` offers "Read metrics". Picking it adds the bot
+//! to Metric readers (after the person confirms with their authenticator), and
+//! the token step returns a [`bots::MintedTokenView`] whose `can_do` reads "read
+//! metrics" and whose `setup` holds the command above.
+//!
+//! ## When a bot access choice can't be given
+//!
+//! [`bots::BotAccessBackend::can_grant_group`] answers per viewer. When it says no,
+//! the choice stays on the page, switched off, with "Only an owner of Metric
+//! readers or a super user can add bots to it." The server refuses the same
+//! choice with `reason_class=not_grantable`, so the page is never the only
+//! check.
+//!
+//! ```rust,ignore
+//! let views = lepton_app::bots::bot_access_choices().await?;
+//! let metrics = views.iter().find(|c| c.key == "metrics-read").expect("offered");
+//! assert_eq!(metrics.grantable, false); // viewer doesn't own Metric readers
+//! ```
+//!
 //! ## Feature flags
 //!
 //! | Flag | Effect |
@@ -214,6 +326,9 @@
 //! | `/user/appearance` | [`AppearancePage`] | `appearance` (+ `appearance_preview` gallery) |
 //! | `/user/account-settings` | [`AccountSettingsPage`] | `account_settings` (+ `connected_accounts_section`, `devices_section`, `totp_section`, `wipe_section`) |
 //! | `/user/confirm-account` | [`ConfirmAccountPage`] | `confirm_account` |
+//! | `/user/bots` | [`bots::BotsPage`] | [`bots`] |
+//! | `/user/bots/new` | [`bots::CreateBotPage`] | [`bots`] |
+//! | `/user/bots/{bot_id}/token` | [`bots::BotTokenPage`] | [`bots`] |
 //!
 //! [`UserLayout`] wraps these under the app-bar/left-nav shell; WASM code-split lazy
 //! views ([`AccountSettingsRoute`], [`AppearanceRoute`], [`ProfileRoute`],
@@ -236,6 +351,8 @@ use uf_product_macros::uf_app;
 mod account_settings;
 mod appearance;
 mod appearance_preview;
+pub mod bots;
+mod clipboard;
 mod confirm_account;
 mod connected_accounts_section;
 mod delivery_settings;
@@ -260,8 +377,8 @@ pub use delivery_settings::{
 pub use devices_section::SecurityDevicesSection;
 pub use layout::UserLayout;
 pub use lazy_routes::{
-    prefetch_family, AccountSettingsRoute, AppearanceRoute, ConfirmAccountRoute,
-    DeliverySettingsRoute, ProfileRoute,
+    prefetch_family, AccountSettingsRoute, AppearanceRoute, BotNewRoute, BotTokenRoute, BotsRoute,
+    ConfirmAccountRoute, DeliverySettingsRoute, ProfileRoute,
 };
 pub use permissions::LeptonPermission;
 pub use profile::{
@@ -307,6 +424,9 @@ pub fn UserAppRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("account-settings") view={Lazy::<AccountSettingsRoute>::new()} />
             <Route path=path!("confirm-account") view={Lazy::<ConfirmAccountRoute>::new()} />
             <Route path=path!("delivery") view={Lazy::<DeliverySettingsRoute>::new()} />
+            <Route path=path!("bots") view={Lazy::<BotsRoute>::new()} />
+            <Route path=path!("bots/new") view={Lazy::<BotNewRoute>::new()} />
+            <Route path=path!("bots/:bot_id/token") view={Lazy::<BotTokenRoute>::new()} />
         </ParentRoute>
     }
     .into_inner()

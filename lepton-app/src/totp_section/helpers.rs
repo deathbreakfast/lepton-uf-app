@@ -13,18 +13,7 @@ pub(super) enum TotpUiStep {
     RegenConfirm,
 }
 
-pub(super) fn copy_text(text: &str) {
-    #[cfg(feature = "hydrate")]
-    {
-        if let Some(window) = web_sys::window() {
-            let _ = window.navigator().clipboard().write_text(text);
-        }
-    }
-    #[cfg(not(feature = "hydrate"))]
-    {
-        let _ = text;
-    }
-}
+pub(super) use crate::clipboard::copy_text;
 
 pub(super) fn server_err(err: &ServerFnError) -> String {
     err.to_string()

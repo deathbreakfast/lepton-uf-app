@@ -100,6 +100,7 @@ Shared Playwright helpers live in [`end2end/shared/`](end2end/shared/) (`seedTes
 | `totp_enroll.spec.ts` | `pw-totp-enroll-happy`, `pw-totp-enroll-bad-code-sad` |
 | `oauth_link_settings.spec.ts` | `pw-oauth-link-google-happy`, `pw-oauth-link-account-taken-sad` |
 | `delivery_settings.spec.ts` | `pw-lepton-delivery-settings-happy`, `pw-lepton-delivery-settings-denied-sad`, `pw-lepton-delivery-settings-test-send-failed-sad`, `pw-lepton-delivery-settings-stepup-sad` |
+| `bots.spec.ts` | `pw-lepton-bots-list-empty-happy`, `pw-lepton-bots-no-permission-sad`, `pw-lepton-bots-anonymous-sad`, `pw-lepton-bots-create-full-happy`, `pw-lepton-bots-reveal-once-happy`, `pw-lepton-bots-handle-clash-sad`, `pw-lepton-bots-handle-invalid-sad`, `pw-lepton-bots-profile-empty-name-sad`, `pw-lepton-bots-access-not-grantable-sad`, `pw-lepton-bots-quota-sad`, `pw-lepton-bots-token-limit-sad`, `pw-lepton-bots-foreign-bot-sad`, `pw-lepton-bots-suspended-bot-sad`, `pw-lepton-bots-dark-mode`, `pw-lepton-bots-mobile-390`, `pw-lepton-bots-keyboard-create` |
 
 ## Sign-in and delivery
 
@@ -118,6 +119,26 @@ Lab-only routes, never mounted on a production host:
 | `POST /mock/twilio/v2/Services/{sid}/Verifications` | Twilio Verify stand-in; also forwards the code to the SMS sink so OTP reads keep working |
 | `GET /api/test/mock-providers` | What the mocks received |
 | `POST /api/test/mock-providers/reset` and `.../fail/{provider}/{status}` | Clear the record; make a provider answer with a status |
+
+## Bots
+
+The Bots pages (`/user/bots`) run against Gauge's bot gate, a "Spectra readers"
+group with no owners, and an in-memory token store in `src/bots.rs`. The token
+store hands out random `labtk_` secrets and counts them per bot; it stands in
+for a host's real token service, which a host covers in its own tests. Group
+grants go through Gauge for real, so only a super user can put a bot in Spectra
+readers here, and that asks for an authenticator code.
+
+Accessibility checks run axe (`@axe-core/playwright`, WCAG 2 A and AA) on the
+list, each create step and the token reveal, in light and dark mode. Dark mode
+is set through the Appearance page, because Orbital doesn't follow the
+browser's color scheme.
+
+Lab-only route, never mounted on a production host:
+
+| Route | Role |
+|-------|------|
+| `POST /api/test/bots` | `join_creators` and `super_user` (by email), `seed_bots` (create and optionally pause bots for a user), `seed_tokens` (pretend a bot has N tokens), `in_readers` (is a bot in Spectra readers) |
 
 `pw-account-change-email-happy` requires Mailpit and asserts “Verification sent…” plus a message to the new address.
 
