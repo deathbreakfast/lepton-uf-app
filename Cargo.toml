@@ -215,7 +215,7 @@ orbital-scheduler = { git = "https://github.com/unified-field-dev/orbital", bran
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 
 
-# Bot accounts live on lepton's and gauge's mcp-server branches until they land
+# Service users live on lepton's and gauge's mcp-server branches until they land
 # on main. Build against the local checkouts; re-point to main before opening a PR.
 [patch."https://github.com/unified-field-dev/lepton"]
 lepton = { path = "../../L1-host-stack-kits/lepton/lepton" }

@@ -5,10 +5,10 @@ use leptos_router::{lazy_route, LazyRoute};
 
 use crate::account_settings::AccountSettingsPage;
 use crate::appearance::AppearancePage;
-use crate::bots::{BotTokenPage, BotsPage, CreateBotPage};
 use crate::confirm_account::ConfirmAccountPage;
 use crate::delivery_settings::DeliverySettingsPage;
 use crate::profile::ProfilePage;
+use crate::service_users::{CreateServiceUserPage, ServiceUserTokenPage, ServiceUsersPage};
 
 /// Prefetch the user settings family WASM chunk (leaf pages share split modules).
 pub async fn prefetch_family() {
@@ -105,12 +105,12 @@ impl LazyRoute for DeliverySettingsRoute {
     }
 }
 
-/// Lazy `/user/bots` page.
+/// Lazy `/user/service-users` page.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct BotsRoute;
+pub struct ServiceUsersRoute;
 
 #[lazy_route]
-impl LazyRoute for BotsRoute {
+impl LazyRoute for ServiceUsersRoute {
     fn data() -> Self {
         Self
     }
@@ -118,19 +118,19 @@ impl LazyRoute for BotsRoute {
     fn view(_this: Self) -> AnyView {
         view! {
             <uf_product::routes::RequireAuthenticated>
-                <BotsPage />
+                <ServiceUsersPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()
     }
 }
 
-/// Lazy `/user/bots/new` page.
+/// Lazy `/user/service-users/new` page.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct BotNewRoute;
+pub struct ServiceUserNewRoute;
 
 #[lazy_route]
-impl LazyRoute for BotNewRoute {
+impl LazyRoute for ServiceUserNewRoute {
     fn data() -> Self {
         Self
     }
@@ -138,19 +138,19 @@ impl LazyRoute for BotNewRoute {
     fn view(_this: Self) -> AnyView {
         view! {
             <uf_product::routes::RequireAuthenticated>
-                <CreateBotPage />
+                <CreateServiceUserPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()
     }
 }
 
-/// Lazy `/user/bots/{bot_id}/token` page.
+/// Lazy `/user/service-users/{service_user_id}/token` page.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct BotTokenRoute;
+pub struct ServiceUserTokenRoute;
 
 #[lazy_route]
-impl LazyRoute for BotTokenRoute {
+impl LazyRoute for ServiceUserTokenRoute {
     fn data() -> Self {
         Self
     }
@@ -158,7 +158,7 @@ impl LazyRoute for BotTokenRoute {
     fn view(_this: Self) -> AnyView {
         view! {
             <uf_product::routes::RequireAuthenticated>
-                <BotTokenPage />
+                <ServiceUserTokenPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()

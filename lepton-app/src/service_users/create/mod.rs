@@ -1,6 +1,6 @@
-//! `/user/bots/new`: create a bot in three steps (name it, choose access, get a
+//! `/user/service-users/new`: create a service user in three steps (name it, choose access, get a
 //! token). Each step saves on its own, so leaving part way keeps what was done:
-//! the bot shows on the Bots page and "New token" picks up from step 3.
+//! the service user shows on the Service users page and "New token" picks up from step 3.
 
 mod access_step;
 mod profile_step;
@@ -14,9 +14,9 @@ use uf_product::components::{
 use uf_product::primitives::*;
 
 use super::error::friendly_error;
-use super::server::get_bots_overview;
+use super::server::get_service_users_overview;
 use super::token::{TokenForm, TokenReveal};
-use super::types::{BotRow, BotsOverview, MintedTokenView};
+use super::types::{MintedTokenView, ServiceUserRow, ServiceUsersOverview};
 use crate::paths;
 use access_step::AccessStep;
 use profile_step::ProfileStep;
@@ -25,8 +25,11 @@ use profile_step::ProfileStep;
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Stage {
     Profile,
-    Access(BotRow),
-    Token { bot: BotRow, keys: Vec<String> },
+    Access(ServiceUserRow),
+    Token {
+        service_user: ServiceUserRow,
+        keys: Vec<String>,
+    },
 }
 
 impl Stage {
@@ -50,24 +53,24 @@ const fn step_status(n: u8, current: u8, finished: bool) -> StepStatus {
     }
 }
 
-/// `/user/bots/new` page.
+/// `/user/service-users/new` page.
 ///
 /// Wrap in [`uf_product::routes::RequireAuthenticated`] at the route.
 #[component]
-pub fn CreateBotPage() -> impl IntoView {
-    let overview = Resource::new(|| (), |()| get_bots_overview());
+pub fn CreateServiceUserPage() -> impl IntoView {
+    let overview = Resource::new(|| (), |()| get_service_users_overview());
 
     view! {
-        <ContentContainer max_width="900px".to_string() data_testid="bot-create-page".to_string()>
+        <ContentContainer max_width="900px".to_string() data_testid="service-user-create-page".to_string()>
             <Flex vertical=true gap=FlexGap::Large>
-                <Title3>"Create a bot"</Title3>
+                <Title3>"Create a service user"</Title3>
                 <Suspense fallback=|| view! {
                     <Skeleton><SkeletonItem size=Signal::from(SkeletonItemSize::S48) /></Skeleton>
                 }>
                     {move || overview.get().map(|res| match res {
                         Ok(o) => view! { <Gate overview=o /> }.into_any(),
                         Err(e) => view! {
-                            <div data-testid="bot-create-load-error">
+                            <div data-testid="service-user-create-load-error">
                                 <MessageBar intent=MessageBarIntent::Error>
                                     {friendly_error(&e.to_string())}
                                 </MessageBar>
@@ -82,16 +85,16 @@ pub fn CreateBotPage() -> impl IntoView {
 
 /// Explain why the person can't start, or start the flow.
 #[component]
-fn Gate(overview: BotsOverview) -> impl IntoView {
+fn Gate(overview: ServiceUsersOverview) -> impl IntoView {
     let navigate = use_navigate();
     if !overview.can_create {
         return view! {
-            <div data-testid="bots-no-permission">
+            <div data-testid="service-users-no-permission">
                 <EmptyState
                     illustration_src=EMPTYSTATE_LOCK_ILLUSTRATION
                     illustration_alt="Locked"
-                    message="You can't create bots yet"
-                    description="Ask a super user to add you to the Bot creators group."
+                    message="You can't create service users yet"
+                    description="Ask a super user to add you to the Service user creators group."
                 />
             </div>
         }
@@ -99,18 +102,18 @@ fn Gate(overview: BotsOverview) -> impl IntoView {
     }
     if overview.at_limit() {
         return view! {
-            <div data-testid="bots-at-limit">
+            <div data-testid="service-users-at-limit">
                 <EmptyState
                     icon=icondata::AiRobotOutlined
-                    message="You have the most bots allowed"
-                    description="Each person can have 10 bots. Delete one to make room."
+                    message="You have the most service users allowed"
+                    description="Each person can have 10 service users. Delete one to make room."
                 >
                     <EmptyStateCallToAction slot:call_to_action>
                         <Button
                             appearance=ButtonAppearance::Secondary
-                            on_click=Callback::new(move |_| navigate(paths::BOTS, Default::default()))
+                            on_click=Callback::new(move |_| navigate(paths::SERVICE_USERS, Default::default()))
                         >
-                            "Back to bots"
+                            "Back to service users"
                         </Button>
                     </EmptyStateCallToAction>
                 </EmptyState>
@@ -131,7 +134,7 @@ fn Flow(owner_email: String, tokens_configured: bool) -> impl IntoView {
         let current = stage.with(Stage::number);
         let finished = minted.with(Option::is_some);
         view! {
-            <div data-testid="bot-create-stepper">
+            <div data-testid="service-user-create-stepper">
             <Stepper vertical=false>
                 <Step slot:steps label="Name it".to_string() status=step_status(1, current, finished) />
                 <Step slot:steps label="Choose access".to_string() status=step_status(2, current, finished) />
@@ -144,25 +147,25 @@ fn Flow(owner_email: String, tokens_configured: bool) -> impl IntoView {
 
     view! {
         {stepper}
-        <div data-testid="bot-create-progress" aria-live="polite">
+        <div data-testid="service-user-create-progress" aria-live="polite">
             <Caption2>{progress}</Caption2>
         </div>
         {move || match stage.get() {
             Stage::Profile => view! {
                 <ProfileStep
                     owner_email=owner_email.clone()
-                    on_created=Callback::new(move |bot| stage.set(Stage::Access(bot)))
+                    on_created=Callback::new(move |service_user| stage.set(Stage::Access(service_user)))
                 />
             }.into_any(),
-            Stage::Access(bot) => view! {
+            Stage::Access(service_user) => view! {
                 <AccessStep
-                    bot=bot.clone()
+                    service_user=service_user.clone()
                     tokens_configured=tokens_configured
-                    on_next=Callback::new(move |keys| stage.set(Stage::Token { bot: bot.clone(), keys }))
+                    on_next=Callback::new(move |keys| stage.set(Stage::Token { service_user: service_user.clone(), keys }))
                 />
             }.into_any(),
-            Stage::Token { bot, keys } => {
-                let handle = bot.handle.clone();
+            Stage::Token { service_user, keys } => {
+                let handle = service_user.handle.clone();
                 view! {
                     {move || match minted.get() {
                         Some(token) => view! {
@@ -170,7 +173,7 @@ fn Flow(owner_email: String, tokens_configured: bool) -> impl IntoView {
                         }.into_any(),
                         None => view! {
                             <TokenForm
-                                bot=bot.clone()
+                                service_user=service_user.clone()
                                 preselected=keys.clone()
                                 on_minted=Callback::new(move |t| minted.set(Some(t)))
                             />

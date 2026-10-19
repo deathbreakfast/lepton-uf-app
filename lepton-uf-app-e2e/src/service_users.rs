@@ -1,31 +1,31 @@
-//! Lab bot wiring: the Gauge bot gate, a "Spectra readers" stand-in group, a
-//! [`BotAccessBackend`] that keeps tokens in memory, and a seed route.
+//! Lab service user wiring: the Gauge service user gate, a "Spectra readers" stand-in group, a
+//! [`ServiceUserAccessBackend`] that keeps tokens in memory, and a seed route.
 //!
 //! Lab-only. The token store is a stand-in for a host's real token service:
-//! it hands out random secrets, counts them per bot, and forgets them on
+//! it hands out random secrets, counts them per service user, and forgets them on
 //! restart. Group grants go through Gauge for real, under the signed-in
 //! person's Valence.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use lepton_app::bots::{
-    AccessKind, BotAccessBackend, BotAccessChoice, BotAccessError, ClientSetupStep, MintedToken,
-    RevealOnce, TokenTtl,
+use lepton_app::service_users::{
+    AccessKind, ClientSetupStep, MintedToken, RevealOnce, ServiceUserAccessBackend,
+    ServiceUserAccessChoice, ServiceUserAccessError, TokenTtl,
 };
-use lepton_auth::bots::BotError;
-use lepton_identity::bots::BotId;
-use lepton_identity::generated::BotStatus;
+use lepton_auth::service_users::ServiceUserError;
+use lepton_identity::generated::ServiceUserAccountStatus;
+use lepton_identity::service_users::ServiceUserId;
 use valence::{Actor, Model, Valence};
 
 /// Lab stand-in for the host's Spectra readers group.
 pub const LAB_READERS_GROUP_ID: &str = "spectra_readers";
 const LAB_READ_PERMISSION: &str = "lab.spectra.query";
-/// Most active tokens per bot, matching the production token service.
+/// Most active tokens per service user, matching the production token service.
 const MAX_TOKENS: usize = 5;
 
-static CHOICES: &[BotAccessChoice] = &[
-    BotAccessChoice {
+static CHOICES: &[ServiceUserAccessChoice] = &[
+    ServiceUserAccessChoice {
         key: "spectra-read",
         label: "Read Spectra metrics and events",
         summary: "read Spectra metrics and events",
@@ -36,7 +36,7 @@ static CHOICES: &[BotAccessChoice] = &[
         },
         token_scopes: &["spectra:read"],
     },
-    BotAccessChoice {
+    ServiceUserAccessChoice {
         key: "magnon-read",
         label: "Read Magnon projects and tasks",
         summary: "read Magnon projects and tasks",
@@ -44,7 +44,7 @@ static CHOICES: &[BotAccessChoice] = &[
         kind: AccessKind::TokenOnly,
         token_scopes: &["magnon:read"],
     },
-    BotAccessChoice {
+    ServiceUserAccessChoice {
         key: "magnon-write",
         label: "Change Magnon projects and tasks",
         summary: "change Magnon projects and tasks",
@@ -54,39 +54,42 @@ static CHOICES: &[BotAccessChoice] = &[
     },
 ];
 
-/// In-memory token counts per bot id.
+/// In-memory token counts per service user id.
 #[derive(Default)]
 pub struct LabTokens {
-    by_bot: Mutex<HashMap<String, usize>>,
+    by_service_user: Mutex<HashMap<String, usize>>,
 }
 
 impl LabTokens {
-    /// Lab seed: pretend `bot` already has `n` tokens.
-    pub fn set_count(&self, bot: &str, n: usize) {
-        if let Ok(mut m) = self.by_bot.lock() {
-            m.insert(bot.to_string(), n);
+    /// Lab seed: pretend `service_user` already has `n` tokens.
+    pub fn set_count(&self, service_user: &str, n: usize) {
+        if let Ok(mut m) = self.by_service_user.lock() {
+            m.insert(service_user.to_string(), n);
         }
     }
 
-    fn add(&self, bot: &str) -> Result<(), BotAccessError> {
-        let mut m = self.by_bot.lock().map_err(|_| BotAccessError::Store {
-            reason_class: "lab_lock",
-        })?;
-        let n = m.entry(bot.to_string()).or_insert(0);
+    fn add(&self, service_user: &str) -> Result<(), ServiceUserAccessError> {
+        let mut m = self
+            .by_service_user
+            .lock()
+            .map_err(|_| ServiceUserAccessError::Store {
+                reason_class: "lab_lock",
+            })?;
+        let n = m.entry(service_user.to_string()).or_insert(0);
         if *n >= MAX_TOKENS {
-            return Err(BotAccessError::TooManyTokens { limit: 5 });
+            return Err(ServiceUserAccessError::TooManyTokens { limit: 5 });
         }
         *n += 1;
         Ok(())
     }
 }
 
-/// Lab [`BotAccessBackend`].
-pub struct LabBotAccess {
+/// Lab [`ServiceUserAccessBackend`].
+pub struct LabServiceUserAccess {
     tokens: Arc<LabTokens>,
 }
 
-impl LabBotAccess {
+impl LabServiceUserAccess {
     /// Backend sharing `tokens` with the seed route.
     #[must_use]
     pub const fn new(tokens: Arc<LabTokens>) -> Self {
@@ -94,28 +97,34 @@ impl LabBotAccess {
     }
 }
 
-fn gauge_err(e: &anyhow::Error, choice: &'static str) -> BotAccessError {
+fn gauge_err(e: &anyhow::Error, choice: &'static str) -> ServiceUserAccessError {
     match e.downcast_ref::<gauge::service::GaugeServiceError>() {
         Some(gauge::service::GaugeServiceError::NotAuthorized { .. }) => {
-            BotAccessError::NotGrantable { choice }
+            ServiceUserAccessError::NotGrantable { choice }
         }
-        Some(gauge::service::GaugeServiceError::NotFound { .. }) => BotAccessError::BotNotFound,
-        _ => BotAccessError::Store {
+        Some(gauge::service::GaugeServiceError::NotFound { .. }) => {
+            ServiceUserAccessError::ServiceUserNotFound
+        }
+        _ => ServiceUserAccessError::Store {
             reason_class: "gauge",
         },
     }
 }
 
 #[async_trait::async_trait]
-impl BotAccessBackend for LabBotAccess {
-    fn choices(&self) -> &'static [BotAccessChoice] {
+impl ServiceUserAccessBackend for LabServiceUserAccess {
+    fn choices(&self) -> &'static [ServiceUserAccessChoice] {
         CHOICES
     }
 
-    async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, BotAccessError> {
-        gauge::service::can_add_group_member_bot(group_id, v)
+    async fn can_grant_group(
+        &self,
+        v: &Valence,
+        group_id: &str,
+    ) -> Result<bool, ServiceUserAccessError> {
+        gauge::service::can_add_group_member_service_user(group_id, v)
             .await
-            .map_err(|_| BotAccessError::Store {
+            .map_err(|_| ServiceUserAccessError::Store {
                 reason_class: "gauge",
             })
     }
@@ -123,11 +132,11 @@ impl BotAccessBackend for LabBotAccess {
     async fn grant_group(
         &self,
         v: &Valence,
-        bot: &BotId,
+        service_user: &ServiceUserId,
         group_id: &'static str,
         choice: &'static str,
-    ) -> Result<(), BotAccessError> {
-        gauge::service::add_group_member_bot(group_id, bot, v)
+    ) -> Result<(), ServiceUserAccessError> {
+        gauge::service::add_group_member_service_user(group_id, service_user, v)
             .await
             .map_err(|e| gauge_err(&e, choice))
     }
@@ -135,28 +144,28 @@ impl BotAccessBackend for LabBotAccess {
     async fn mint_token(
         &self,
         v: &Valence,
-        bot: &BotId,
+        service_user: &ServiceUserId,
         _label: &str,
         ttl: TokenTtl,
         _scopes: &[&'static str],
-    ) -> Result<MintedToken, BotAccessError> {
+    ) -> Result<MintedToken, ServiceUserAccessError> {
         if !matches!(v.actor(), Actor::User { .. }) {
-            return Err(BotAccessError::Forbidden);
+            return Err(ServiceUserAccessError::Forbidden);
         }
-        let row = lepton_auth::bots::get_bot(v, bot)
+        let row = lepton_auth::service_users::get_service_user(v, service_user)
             .await
             .map_err(|e| match e {
-                BotError::NotFound => BotAccessError::BotNotFound,
-                BotError::NotAUser => BotAccessError::Forbidden,
-                _ => BotAccessError::Store {
-                    reason_class: "bot_lookup",
+                ServiceUserError::NotFound => ServiceUserAccessError::ServiceUserNotFound,
+                ServiceUserError::NotAUser => ServiceUserAccessError::Forbidden,
+                _ => ServiceUserAccessError::Store {
+                    reason_class: "service_user_lookup",
                 },
             })?;
-        if row.status() == &BotStatus::Suspended {
-            return Err(BotAccessError::BotSuspended);
+        if row.status() == &ServiceUserAccountStatus::Suspended {
+            return Err(ServiceUserAccessError::ServiceUserSuspended);
         }
-        self.tokens.add(bot.as_str())?;
-        let id = BotId::new_v4();
+        self.tokens.add(service_user.as_str())?;
+        let id = ServiceUserId::new_v4();
         Ok(MintedToken {
             public_id: format!("tok_{}", &id.as_str()[..12]),
             secret: RevealOnce::new(format!("labtk_{}", id.as_str().replace('-', ""))),
@@ -164,7 +173,11 @@ impl BotAccessBackend for LabBotAccess {
         })
     }
 
-    fn client_setup(&self, handle: &str, chosen: &[BotAccessChoice]) -> Vec<ClientSetupStep> {
+    fn client_setup(
+        &self,
+        handle: &str,
+        chosen: &[ServiceUserAccessChoice],
+    ) -> Vec<ClientSetupStep> {
         let var = format!("{}_TOKEN", handle.replace('-', "_").to_ascii_uppercase());
         let mut steps = Vec::new();
         if chosen.iter().any(|c| c.key == "spectra-read") {
@@ -187,19 +200,19 @@ impl BotAccessBackend for LabBotAccess {
     }
 }
 
-/// Boot step: Super User group, bot permissions and gate, and the lab
-/// "Spectra readers" group with no owners (only super users can add bots).
+/// Boot step: Super User group, service user permissions and gate, and the lab
+/// "Spectra readers" group with no owners (only super users can add service users).
 ///
 /// # Errors
 ///
 /// Returns when Gauge seeding fails.
-pub async fn boot_bots(system: &Valence) -> anyhow::Result<()> {
+pub async fn boot_service_users(system: &Valence) -> anyhow::Result<()> {
     use gauge::manifest_sync::{PermissionDomainInput, PermissionInput, PermissionManifestInput};
 
     gauge::super_user::ensure_super_user_group(system).await?;
-    let _stats = gauge::bots::seed_bot_permissions(system).await?;
+    let _stats = gauge::service_users::seed_service_user_permissions(system).await?;
     // A host process installs the gate once; the lab only boots once too.
-    let _ = gauge::bots::install_gauge_bot_gate();
+    let _ = gauge::service_users::install_gauge_service_user_gate();
     gauge::manifest_sync::sync_permission_manifests(
         system,
         &[PermissionManifestInput {
@@ -231,14 +244,14 @@ pub async fn boot_bots(system: &Valence) -> anyhow::Result<()> {
 
 /// Bare user id for the account whose primary email is `email`.
 async fn user_id_for_email(system: &Valence, email: &str) -> anyhow::Result<String> {
-    let rows = lepton_identity::generated::AccountEmail::query(system, valence::use_!(r"**Test:** Lab host **finds the account email row** a Playwright run just seeded, so it can act as that user when seeding bots. Only the lab harness uses this."))
+    let rows = lepton_identity::generated::AccountEmail::query(system, valence::use_!(r"**Test:** Lab host **finds the account email row** a Playwright run just seeded, so it can act as that user when seeding service users. Only the lab harness uses this."))
         .where_address(valence::StringPredicate::Equals(email.to_string()))
         .await?;
     let email_id = rows
         .first()
         .and_then(|r| r.id().cloned())
         .ok_or_else(|| anyhow::anyhow!("no email row"))?;
-    let user = lepton_identity::generated::User::query(system, valence::use_!(r"**Test:** Lab host **finds the user** behind a seeded email so a Playwright run can act as them when seeding bots. Only the lab harness uses this."))
+    let user = lepton_identity::generated::User::query(system, valence::use_!(r"**Test:** Lab host **finds the user** behind a seeded email so a Playwright run can act as them when seeding service users. Only the lab harness uses this."))
         .where_primary_email(valence::RecordPredicate::Equals(email_id))
         .first()
         .await?
@@ -249,33 +262,36 @@ async fn user_id_for_email(system: &Valence, email: &str) -> anyhow::Result<Stri
     Ok(valence::extract_id_from_record(rid).unwrap_or_else(|_| rid.id().to_string()))
 }
 
-/// Request body for [`bot_lab`].
+/// Request body for [`service_user_lab`].
 #[derive(serde::Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
-pub enum BotLabRequest {
-    /// Add the user to Bot creators.
+pub enum ServiceUserLabRequest {
+    /// Add the user to Service user creators.
     JoinCreators { email: String },
-    /// Make the user a super user (may add bots to any group).
+    /// Make the user a super user (may add service users to any group).
     SuperUser { email: String },
-    /// Create `count` bots owned by the user (who must be a Bot creator).
-    SeedBots {
+    /// Create `count` service users owned by the user (who must be a Service user creator).
+    SeedServiceUsers {
         email: String,
         prefix: String,
         count: usize,
         #[serde(default)]
         suspend: bool,
     },
-    /// Pretend the bot already has `count` tokens.
-    SeedTokens { bot_id: String, count: usize },
-    /// Whether the bot is in the lab Spectra readers group.
-    InReaders { bot_id: String },
+    /// Pretend the service user already has `count` tokens.
+    SeedTokens {
+        service_user_id: String,
+        count: usize,
+    },
+    /// Whether the service user is in the lab Spectra readers group.
+    InReaders { service_user_id: String },
 }
 
-/// Lab-only seed route for the Bots pages. Do not mount on a production host.
-pub async fn bot_lab(
+/// Lab-only seed route for the Service users pages. Do not mount on a production host.
+pub async fn service_user_lab(
     axum::extract::State(state): axum::extract::State<crate::boot::AppState>,
     axum::Extension(tokens): axum::Extension<Arc<LabTokens>>,
-    axum::Json(body): axum::Json<BotLabRequest>,
+    axum::Json(body): axum::Json<ServiceUserLabRequest>,
 ) -> Result<axum::Json<serde_json::Value>, (axum::http::StatusCode, String)> {
     let fail = |e: anyhow::Error| (axum::http::StatusCode::BAD_REQUEST, format!("{e:#}"));
     let system = crate::boot::system_valence(
@@ -292,17 +308,17 @@ pub async fn bot_lab(
             .map_err(|e| anyhow::anyhow!("{e}"))
     };
     let out = match body {
-        BotLabRequest::JoinCreators { email } => {
-            let group = gauge::generated::PermissionGroup::get(gauge::bots::BOT_CREATORS_GROUP_ID, &system, valence::use_!(r"**Test:** Lab host **loads the Bot creators group** so a Playwright run can add a user to it, standing in for a super user doing that. Only the lab harness uses this."))
+        ServiceUserLabRequest::JoinCreators { email } => {
+            let group = gauge::generated::PermissionGroup::get(gauge::service_users::SERVICE_USER_CREATORS_GROUP_ID, &system, valence::use_!(r"**Test:** Lab host **loads the Service user creators group** so a Playwright run can add a user to it, standing in for a super user doing that. Only the lab harness uses this."))
                 .await
                 .map_err(|e| fail(e.into()))?
-                .ok_or_else(|| fail(anyhow::anyhow!("no Bot creators group")))?;
+                .ok_or_else(|| fail(anyhow::anyhow!("no Service user creators group")))?;
             gauge::super_user::seed_super_user_member_by_email(&system, &group, &email)
                 .await
                 .map_err(fail)?;
             serde_json::json!({ "ok": true })
         }
-        BotLabRequest::SuperUser { email } => {
+        ServiceUserLabRequest::SuperUser { email } => {
             let group = gauge::super_user::ensure_super_user_group(&system)
                 .await
                 .map_err(fail)?;
@@ -311,7 +327,7 @@ pub async fn bot_lab(
                 .map_err(fail)?;
             serde_json::json!({ "ok": true })
         }
-        BotLabRequest::SeedBots {
+        ServiceUserLabRequest::SeedServiceUsers {
             email,
             prefix,
             count,
@@ -321,10 +337,10 @@ pub async fn bot_lab(
             let v = as_user(user_id).map_err(fail)?;
             let mut ids = Vec::new();
             for i in 0..count {
-                let handle = format!("{prefix}-{i}-bot");
-                let bot = lepton_auth::bots::create_bot(
+                let handle = format!("{prefix}-{i}");
+                let service_user = lepton_auth::service_users::create_service_user(
                     &v,
-                    lepton_auth::bots::NewBot {
+                    lepton_auth::service_users::NewServiceUser {
                         handle: &handle,
                         display_name: &format!("Seeded {i}"),
                         description: None,
@@ -332,7 +348,7 @@ pub async fn bot_lab(
                 )
                 .await
                 .map_err(|e| fail(e.into()))?;
-                let id = bot
+                let id = service_user
                     .id()
                     .map(|rid| {
                         valence::extract_id_from_record(rid)
@@ -340,28 +356,34 @@ pub async fn bot_lab(
                     })
                     .unwrap_or_default();
                 if suspend {
-                    let bid = BotId::parse(&id).map_err(|e| fail(anyhow::anyhow!("{e}")))?;
-                    lepton_auth::bots::suspend_bot(&v, &bid)
+                    let bid =
+                        ServiceUserId::parse(&id).map_err(|e| fail(anyhow::anyhow!("{e}")))?;
+                    lepton_auth::service_users::suspend_service_user(&v, &bid)
                         .await
                         .map_err(|e| fail(e.into()))?;
                 }
                 ids.push(serde_json::json!({ "id": id, "handle": handle }));
             }
-            serde_json::json!({ "ok": true, "bots": ids })
+            serde_json::json!({ "ok": true, "service_users": ids })
         }
-        BotLabRequest::SeedTokens { bot_id, count } => {
-            tokens.set_count(&bot_id, count);
+        ServiceUserLabRequest::SeedTokens {
+            service_user_id,
+            count,
+        } => {
+            tokens.set_count(&service_user_id, count);
             serde_json::json!({ "ok": true })
         }
-        BotLabRequest::InReaders { bot_id } => {
-            let group = gauge::generated::PermissionGroup::get(LAB_READERS_GROUP_ID, &system, valence::use_!(r"**Test:** Lab host **loads the lab Spectra readers group** so a Playwright run can check whether a bot joined it. Only the lab harness uses this."))
+        ServiceUserLabRequest::InReaders { service_user_id } => {
+            let group = gauge::generated::PermissionGroup::get(LAB_READERS_GROUP_ID, &system, valence::use_!(r"**Test:** Lab host **loads the lab Spectra readers group** so a Playwright run can check whether a service user joined it. Only the lab harness uses this."))
                 .await
                 .map_err(|e| fail(e.into()))?
                 .ok_or_else(|| fail(anyhow::anyhow!("no readers group")))?;
-            let principal =
-                valence::RecordId::new("permission_bot_principal", format!("bot:{bot_id}"));
+            let principal = valence::RecordId::new(
+                "permission_service_user_principal",
+                format!("svc:{service_user_id}"),
+            );
             let members = group
-                .get_members_record_ids(&system, valence::use_!(r"**Test:** Lab host **reads the lab Spectra readers member list** so a Playwright run can check whether a bot joined. Only the lab harness uses this."))
+                .get_members_record_ids(&system, valence::use_!(r"**Test:** Lab host **reads the lab Spectra readers member list** so a Playwright run can check whether a service user joined. Only the lab harness uses this."))
                 .await
                 .map_err(|e| fail(e.into()))?;
             serde_json::json!({ "member": members.contains(&principal) })

@@ -1,10 +1,10 @@
-//! The host port that gives bots access and tokens.
+//! The host port that gives service users access and tokens.
 //!
-//! Bots, their handles and who may create them come from Lepton. What a bot may
+//! Service users, their handles and who may create them come from Lepton. What a service user may
 //! *do* on a given site, and how it gets a token, belong to the host: one site
 //! grants Spectra through a group, another has no Spectra at all. The host says
-//! so by implementing [`BotAccessBackend`] and providing it per request with
-//! [`provide_bot_access_backend`].
+//! so by implementing [`ServiceUserAccessBackend`] and providing it per request with
+//! [`provide_service_user_access_backend`].
 
 use std::fmt;
 
@@ -12,7 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 #[cfg(feature = "ssr")]
-use lepton_identity::bots::BotId;
+use lepton_identity::service_users::ServiceUserId;
 #[cfg(feature = "ssr")]
 use leptos::prelude::{provide_context, use_context};
 #[cfg(feature = "ssr")]
@@ -21,10 +21,10 @@ use valence::Valence;
 #[cfg(feature = "ssr")]
 use super::types::{ClientSetupStep, RevealOnce, TokenTtl};
 
-/// How a choice gives the bot access.
+/// How a choice gives the service user access.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccessKind {
-    /// The bot joins a Gauge group and holds what the group holds. Only an owner
+    /// The service user joins a Gauge group and holds what the group holds. Only an owner
     /// of the group or a super user can add it.
     GroupMembership {
         /// Gauge group id, for example `spectra_readers`.
@@ -32,13 +32,13 @@ pub enum AccessKind {
         /// Group name people recognise, for example "Spectra readers".
         group_name: &'static str,
     },
-    /// The access lives on the token only. Anyone who owns the bot can give it.
+    /// The access lives on the token only. Anyone who owns the service user can give it.
     TokenOnly,
 }
 
-/// One thing a bot can be allowed to do on this site, in plain language.
+/// One thing a service user can be allowed to do on this site, in plain language.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BotAccessChoice {
+pub struct ServiceUserAccessChoice {
     /// Stable key, for example `spectra-read`.
     pub key: &'static str,
     /// Checkbox label, for example "Read Spectra metrics and events".
@@ -59,17 +59,17 @@ pub struct BotAccessChoice {
 /// `Display` starts with `reason_class=<class>` so the pages can explain it
 /// without showing server text.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BotAccessError {
-    /// No [`BotAccessBackend`] was provided on this request.
+pub enum ServiceUserAccessError {
+    /// No [`ServiceUserAccessBackend`] was provided on this request.
     NotConfigured,
     /// The caller isn't allowed to do this (not a signed-in user, or not the
-    /// bot's owner).
+    /// service user's owner).
     Forbidden,
-    /// The bot doesn't exist or the caller can't see it.
-    BotNotFound,
-    /// The bot is paused, so it can't get tokens.
-    BotSuspended,
-    /// The bot already has the most active tokens allowed.
+    /// The service user doesn't exist or the caller can't see it.
+    ServiceUserNotFound,
+    /// The service user is paused, so it can't get tokens.
+    ServiceUserSuspended,
+    /// The service user already has the most active tokens allowed.
     TooManyTokens {
         /// The limit.
         limit: u32,
@@ -80,7 +80,7 @@ pub enum BotAccessError {
     NoAccessChosen,
     /// A key that isn't one of the host's choices.
     UnknownChoice,
-    /// The caller may not add bots to this group.
+    /// The caller may not add service users to this group.
     NotGrantable {
         /// Key of the refused choice.
         choice: &'static str,
@@ -92,15 +92,15 @@ pub enum BotAccessError {
     },
 }
 
-impl BotAccessError {
+impl ServiceUserAccessError {
     /// Stable class for logs and the page's error text.
     #[must_use]
     pub const fn reason_class(&self) -> &'static str {
         match self {
             Self::NotConfigured => "not_configured",
             Self::Forbidden => "forbidden",
-            Self::BotNotFound => "not_found",
-            Self::BotSuspended => "suspended",
+            Self::ServiceUserNotFound => "not_found",
+            Self::ServiceUserSuspended => "suspended",
             Self::TooManyTokens { .. } => "token_limit",
             Self::InvalidLabel => "label",
             Self::NoAccessChosen => "no_access",
@@ -111,7 +111,7 @@ impl BotAccessError {
     }
 }
 
-impl fmt::Display for BotAccessError {
+impl fmt::Display for ServiceUserAccessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let class = self.reason_class();
         match self {
@@ -127,7 +127,7 @@ impl fmt::Display for BotAccessError {
     }
 }
 
-impl std::error::Error for BotAccessError {}
+impl std::error::Error for ServiceUserAccessError {}
 
 /// A token the host just minted. The secret leaves the server once, in the
 /// response to the person who asked for it.
@@ -143,88 +143,97 @@ pub struct MintedToken {
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// What a host implements so people can give their bots access and tokens.
+/// What a host implements so people can give their service users access and tokens.
 ///
 /// Every method receives the **request** Valence, so the host's own privacy
 /// rules and permission checks apply to the signed-in person. Nothing here may
 /// switch to a system actor.
 #[cfg(feature = "ssr")]
 #[async_trait::async_trait]
-pub trait BotAccessBackend: Send + Sync {
+pub trait ServiceUserAccessBackend: Send + Sync {
     /// The choices this site offers, in display order.
-    fn choices(&self) -> &'static [BotAccessChoice];
+    fn choices(&self) -> &'static [ServiceUserAccessChoice];
 
-    /// Whether the caller may add bots to `group_id`.
+    /// Whether the caller may add service users to `group_id`.
     ///
     /// # Errors
     ///
-    /// [`BotAccessError::Store`] when the answer can't be looked up.
-    async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, BotAccessError>;
+    /// [`ServiceUserAccessError::Store`] when the answer can't be looked up.
+    async fn can_grant_group(
+        &self,
+        v: &Valence,
+        group_id: &str,
+    ) -> Result<bool, ServiceUserAccessError>;
 
-    /// Add `bot` to `group_id`.
+    /// Add `service_user` to `group_id`.
     ///
     /// # Errors
     ///
-    /// [`BotAccessError::NotGrantable`] or [`BotAccessError::BotNotFound`] when
-    /// the caller may not, [`BotAccessError::Store`] otherwise.
+    /// [`ServiceUserAccessError::NotGrantable`] or
+    /// [`ServiceUserAccessError::ServiceUserNotFound`] when the caller may not,
+    /// [`ServiceUserAccessError::Store`] otherwise.
     async fn grant_group(
         &self,
         v: &Valence,
-        bot: &BotId,
+        service_user: &ServiceUserId,
         group_id: &'static str,
         choice: &'static str,
-    ) -> Result<(), BotAccessError>;
+    ) -> Result<(), ServiceUserAccessError>;
 
-    /// Mint a token for `bot` carrying `scopes`.
+    /// Mint a token for `service_user` carrying `scopes`.
     ///
     /// # Errors
     ///
-    /// [`BotAccessError::Forbidden`], [`BotAccessError::BotNotFound`],
-    /// [`BotAccessError::BotSuspended`], [`BotAccessError::TooManyTokens`],
-    /// [`BotAccessError::InvalidLabel`] or [`BotAccessError::Store`].
+    /// [`ServiceUserAccessError::Forbidden`], [`ServiceUserAccessError::ServiceUserNotFound`],
+    /// [`ServiceUserAccessError::ServiceUserSuspended`], [`ServiceUserAccessError::TooManyTokens`],
+    /// [`ServiceUserAccessError::InvalidLabel`] or [`ServiceUserAccessError::Store`].
     async fn mint_token(
         &self,
         v: &Valence,
-        bot: &BotId,
+        service_user: &ServiceUserId,
         label: &str,
         ttl: TokenTtl,
         scopes: &[&'static str],
-    ) -> Result<MintedToken, BotAccessError>;
+    ) -> Result<MintedToken, ServiceUserAccessError>;
 
-    /// Commands that connect a tool to the bot, given what its token can do.
+    /// Commands that connect a tool to the service user, given what its token can do.
     /// They must refer to the token through an environment variable, never
     /// include the secret.
-    fn client_setup(&self, handle: &str, chosen: &[BotAccessChoice]) -> Vec<ClientSetupStep>;
+    fn client_setup(
+        &self,
+        handle: &str,
+        chosen: &[ServiceUserAccessChoice],
+    ) -> Vec<ClientSetupStep>;
 }
 
-/// Provide the host's [`BotAccessBackend`] for this request.
+/// Provide the host's [`ServiceUserAccessBackend`] for this request.
 ///
 /// Call it where the host provides its other per-request context, next to the
-/// permission backend. Without it the Bots pages still list and create bots,
-/// and say that this site can't give bots tokens.
+/// permission backend. Without it the Service users pages still list and create service users,
+/// and say that this site can't give service users tokens.
 #[cfg(feature = "ssr")]
-pub fn provide_bot_access_backend(backend: Arc<dyn BotAccessBackend>) {
+pub fn provide_service_user_access_backend(backend: Arc<dyn ServiceUserAccessBackend>) {
     provide_context(backend);
 }
 
 /// The backend provided for this request, if any.
 #[cfg(feature = "ssr")]
 #[must_use]
-pub fn use_bot_access_backend() -> Option<Arc<dyn BotAccessBackend>> {
-    use_context::<Arc<dyn BotAccessBackend>>()
+pub fn use_service_user_access_backend() -> Option<Arc<dyn ServiceUserAccessBackend>> {
+    use_context::<Arc<dyn ServiceUserAccessBackend>>()
 }
 
 /// Look up choices by key, keeping the host's order.
 ///
 /// # Errors
 ///
-/// [`BotAccessError::UnknownChoice`] for a key the host doesn't offer.
+/// [`ServiceUserAccessError::UnknownChoice`] for a key the host doesn't offer.
 pub fn resolve_choices(
-    all: &'static [BotAccessChoice],
+    all: &'static [ServiceUserAccessChoice],
     keys: &[String],
-) -> Result<Vec<BotAccessChoice>, BotAccessError> {
+) -> Result<Vec<ServiceUserAccessChoice>, ServiceUserAccessError> {
     if keys.iter().any(|k| !all.iter().any(|c| c.key == k)) {
-        return Err(BotAccessError::UnknownChoice);
+        return Err(ServiceUserAccessError::UnknownChoice);
     }
     Ok(all
         .iter()
@@ -235,7 +244,7 @@ pub fn resolve_choices(
 
 /// Token grants for a set of choices, without repeats.
 #[must_use]
-pub fn token_scopes(chosen: &[BotAccessChoice]) -> Vec<&'static str> {
+pub fn token_scopes(chosen: &[ServiceUserAccessChoice]) -> Vec<&'static str> {
     let mut scopes: Vec<&'static str> = Vec::new();
     for scope in chosen.iter().flat_map(|c| c.token_scopes.iter().copied()) {
         if !scopes.contains(&scope) {
@@ -248,7 +257,7 @@ pub fn token_scopes(chosen: &[BotAccessChoice]) -> Vec<&'static str> {
 /// "read Spectra metrics and events and read Magnon projects", for the
 /// "This token can …" line.
 #[must_use]
-pub fn summarize(chosen: &[BotAccessChoice]) -> String {
+pub fn summarize(chosen: &[ServiceUserAccessChoice]) -> String {
     let parts: Vec<&str> = chosen.iter().map(|c| c.summary).collect();
     match parts.as_slice() {
         [] => String::new(),
@@ -263,8 +272,8 @@ pub fn summarize(chosen: &[BotAccessChoice]) -> String {
 mod tests {
     use super::*;
 
-    static CHOICES: &[BotAccessChoice] = &[
-        BotAccessChoice {
+    static CHOICES: &[ServiceUserAccessChoice] = &[
+        ServiceUserAccessChoice {
             key: "spectra-read",
             label: "Read Spectra metrics and events",
             summary: "read Spectra metrics and events",
@@ -275,7 +284,7 @@ mod tests {
             },
             token_scopes: &["spectra:read"],
         },
-        BotAccessChoice {
+        ServiceUserAccessChoice {
             key: "magnon-read",
             label: "Read Magnon",
             summary: "read Magnon projects and tasks",
@@ -283,7 +292,7 @@ mod tests {
             kind: AccessKind::TokenOnly,
             token_scopes: &["magnon:read"],
         },
-        BotAccessChoice {
+        ServiceUserAccessChoice {
             key: "magnon-write",
             label: "Change Magnon",
             summary: "change Magnon projects and tasks",
@@ -309,7 +318,7 @@ mod tests {
     fn resolve_unknown_key_errors() {
         assert_eq!(
             resolve_choices(CHOICES, &["spectra-read".into(), "root".into()]),
-            Err(BotAccessError::UnknownChoice)
+            Err(ServiceUserAccessError::UnknownChoice)
         );
     }
 
@@ -338,15 +347,15 @@ mod tests {
     #[test]
     fn error_display_leads_with_reason_class() {
         assert_eq!(
-            BotAccessError::TooManyTokens { limit: 5 }.to_string(),
+            ServiceUserAccessError::TooManyTokens { limit: 5 }.to_string(),
             "reason_class=token_limit: at most 5 active tokens"
         );
         assert_eq!(
-            BotAccessError::NotConfigured.to_string(),
+            ServiceUserAccessError::NotConfigured.to_string(),
             "reason_class=not_configured"
         );
         assert_eq!(
-            BotAccessError::Store {
+            ServiceUserAccessError::Store {
                 reason_class: "token_store"
             }
             .to_string(),

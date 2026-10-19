@@ -1,16 +1,16 @@
-//! Values the bot pages and their server functions exchange.
+//! Values the service user pages and their server functions exchange.
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// How long a new bot token stays valid.
+/// How long a new service user token stays valid.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TokenTtl {
     /// 30 days. The default.
     #[default]
     Days30,
-    /// 90 days, the longest a bot token may live.
+    /// 90 days, the longest a service user token may live.
     Days90,
 }
 
@@ -35,52 +35,52 @@ impl TokenTtl {
     }
 }
 
-/// Whether a bot may act.
+/// Whether a service user may act.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BotState {
+pub enum ServiceUserState {
     /// Its tokens work.
     Active,
     /// Its owner paused it; its tokens are refused.
     Paused,
 }
 
-/// One bot as the list and the token page show it.
+/// One service user as the list and the token page show it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BotRow {
-    /// Bot id (a UUID).
+pub struct ServiceUserRow {
+    /// Service user id (a UUID).
     pub id: String,
-    /// Handle without the `@`, for example `spectra-bot`.
+    /// Handle without the `@`, for example `spectra-agent`.
     pub handle: String,
-    /// Name shown next to the bot's actions.
+    /// Name shown next to the service user's actions.
     pub display_name: String,
-    /// What the bot is for.
+    /// What the service user is for.
     pub description: Option<String>,
     /// Active or paused.
-    pub state: BotState,
+    pub state: ServiceUserState,
     /// Creation date, `YYYY-MM-DD` in UTC.
     pub created_on: String,
 }
 
-/// Everything the Bots page needs in one load.
+/// Everything the Service users page needs in one load.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BotsOverview {
-    /// The viewer's bots, oldest first.
-    pub bots: Vec<BotRow>,
-    /// Most bots one person may own.
+pub struct ServiceUsersOverview {
+    /// The viewer's service users, oldest first.
+    pub service_users: Vec<ServiceUserRow>,
+    /// Most service users one person may own.
     pub limit: u32,
-    /// Whether the viewer may create bots at all.
+    /// Whether the viewer may create service users at all.
     pub can_create: bool,
-    /// Whether this site can give bots tokens.
+    /// Whether this site can give service users tokens.
     pub tokens_configured: bool,
-    /// The viewer's email, shown as the owner while creating a bot.
+    /// The viewer's email, shown as the owner while creating a service user.
     pub owner_email: String,
 }
 
-impl BotsOverview {
-    /// True when the viewer owns the most bots allowed.
+impl ServiceUsersOverview {
+    /// True when the viewer owns the most service users allowed.
     #[must_use]
     pub fn at_limit(&self) -> bool {
-        u32::try_from(self.bots.len()).map_or(true, |n| n >= self.limit)
+        u32::try_from(self.service_users.len()).map_or(true, |n| n >= self.limit)
     }
 }
 
@@ -93,8 +93,6 @@ pub enum HandleProblem {
     TooLong,
     /// Has a character outside `a-z`, `0-9` and single dashes.
     InvalidChar,
-    /// Doesn't end in `bot`.
-    MissingBotSuffix,
     /// Uses a word kept for the platform, such as `admin` or `support`.
     Reserved,
 }
@@ -106,7 +104,6 @@ impl HandleProblem {
         match reason {
             "too_short" => Self::TooShort,
             "too_long" => Self::TooLong,
-            "missing_bot_suffix" => Self::MissingBotSuffix,
             "reserved" => Self::Reserved,
             _ => Self::InvalidChar,
         }
@@ -119,7 +116,6 @@ impl HandleProblem {
             Self::TooShort | Self::TooLong | Self::InvalidChar => {
                 "Use 3 to 32 lowercase letters, numbers or single dashes."
             }
-            Self::MissingBotSuffix => "Handles end in bot, for example spectra-bot.",
             Self::Reserved => "That handle is kept for the platform. Try another.",
         }
     }
@@ -133,7 +129,7 @@ pub enum HandleCheck {
         /// The handle as it will be saved.
         handle: String,
     },
-    /// Another bot uses it.
+    /// Another service user uses it.
     Taken {
         /// The handle as typed, normalized.
         handle: String,
@@ -175,7 +171,7 @@ pub struct AccessChoiceView {
     pub label: String,
     /// One sentence under the label saying what picking it does.
     pub help: String,
-    /// Group the bot joins, when the choice works through a group.
+    /// Group the service user joins, when the choice works through a group.
     pub group_name: Option<String>,
     /// Whether this viewer may give the choice. False means only a group owner
     /// or a super user can.
@@ -210,7 +206,7 @@ impl fmt::Debug for RevealOnce {
     }
 }
 
-/// A command block that connects a tool to the bot.
+/// A command block that connects a tool to the service user.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientSetupStep {
     /// What the block does, for example "Add Spectra to Claude Code".
@@ -219,7 +215,7 @@ pub struct ClientSetupStep {
     pub code: String,
 }
 
-/// A new token, returned once by `mint_bot_token`.
+/// A new token, returned once by `mint_service_user_token`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MintedTokenView {
     /// Public token id, safe to show and log.
@@ -242,9 +238,9 @@ mod tests {
     #[test]
     fn handle_check_free_when_suggestion_equals_input() {
         assert_eq!(
-            HandleCheck::from_suggestion(" Spectra-Bot ", "spectra-bot"),
+            HandleCheck::from_suggestion(" Spectra-Agent ", "spectra-agent"),
             HandleCheck::Free {
-                handle: "spectra-bot".into()
+                handle: "spectra-agent".into()
             }
         );
     }
@@ -252,10 +248,10 @@ mod tests {
     #[test]
     fn handle_check_taken_carries_suggestion() {
         assert_eq!(
-            HandleCheck::from_suggestion("spectra-bot", "spectra-2-bot"),
+            HandleCheck::from_suggestion("spectra-agent", "spectra-agent-2"),
             HandleCheck::Taken {
-                handle: "spectra-bot".into(),
-                suggestion: Some("spectra-2-bot".into())
+                handle: "spectra-agent".into(),
+                suggestion: Some("spectra-agent-2".into())
             }
         );
     }
@@ -271,10 +267,6 @@ mod tests {
             HandleProblem::TooLong
         );
         assert_eq!(
-            HandleProblem::from_reason("missing_bot_suffix"),
-            HandleProblem::MissingBotSuffix
-        );
-        assert_eq!(
             HandleProblem::from_reason("reserved"),
             HandleProblem::Reserved
         );
@@ -282,7 +274,11 @@ mod tests {
             HandleProblem::from_reason("invalid_char"),
             HandleProblem::InvalidChar
         );
-        assert!(HandleProblem::MissingBotSuffix.message().contains("bot"));
+        // The retired `missing_bot_suffix` reason falls back to the generic rule.
+        assert_eq!(
+            HandleProblem::from_reason("missing_bot_suffix"),
+            HandleProblem::InvalidChar
+        );
     }
 
     #[test]
@@ -317,20 +313,20 @@ mod tests {
 
     #[test]
     fn overview_at_limit() {
-        let mut o = BotsOverview {
-            bots: vec![],
+        let mut o = ServiceUsersOverview {
+            service_users: vec![],
             limit: 1,
             can_create: true,
             tokens_configured: true,
             owner_email: "a@example.test".into(),
         };
         assert!(!o.at_limit());
-        o.bots.push(BotRow {
+        o.service_users.push(ServiceUserRow {
             id: "x".into(),
-            handle: "x-bot".into(),
+            handle: "x-agent".into(),
             display_name: "X".into(),
             description: None,
-            state: BotState::Active,
+            state: ServiceUserState::Active,
             created_on: "2026-10-15".into(),
         });
         assert!(o.at_limit());

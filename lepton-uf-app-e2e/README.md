@@ -100,7 +100,7 @@ Shared Playwright helpers live in [`end2end/shared/`](end2end/shared/) (`seedTes
 | `totp_enroll.spec.ts` | `pw-totp-enroll-happy`, `pw-totp-enroll-bad-code-sad` |
 | `oauth_link_settings.spec.ts` | `pw-oauth-link-google-happy`, `pw-oauth-link-account-taken-sad` |
 | `delivery_settings.spec.ts` | `pw-lepton-delivery-settings-happy`, `pw-lepton-delivery-settings-denied-sad`, `pw-lepton-delivery-settings-test-send-failed-sad`, `pw-lepton-delivery-settings-stepup-sad` |
-| `bots.spec.ts` | `pw-lepton-bots-list-empty-happy`, `pw-lepton-bots-no-permission-sad`, `pw-lepton-bots-anonymous-sad`, `pw-lepton-bots-create-full-happy`, `pw-lepton-bots-reveal-once-happy`, `pw-lepton-bots-handle-clash-sad`, `pw-lepton-bots-handle-invalid-sad`, `pw-lepton-bots-profile-empty-name-sad`, `pw-lepton-bots-access-not-grantable-sad`, `pw-lepton-bots-quota-sad`, `pw-lepton-bots-token-limit-sad`, `pw-lepton-bots-foreign-bot-sad`, `pw-lepton-bots-suspended-bot-sad`, `pw-lepton-bots-dark-mode`, `pw-lepton-bots-mobile-390`, `pw-lepton-bots-keyboard-create` |
+| `service-users.spec.ts` | `pw-lepton-service-users-list-empty-happy`, `pw-lepton-service-users-no-permission-sad`, `pw-lepton-service-users-anonymous-sad`, `pw-lepton-service-users-create-full-happy`, `pw-lepton-service-users-reveal-once-happy`, `pw-lepton-service-users-handle-clash-sad`, `pw-lepton-service-users-handle-invalid-sad`, `pw-lepton-service-users-profile-empty-name-sad`, `pw-lepton-service-users-access-not-grantable-sad`, `pw-lepton-service-users-quota-sad`, `pw-lepton-service-users-token-limit-sad`, `pw-lepton-service-users-foreign-service-user-sad`, `pw-lepton-service-users-suspended-service-user-sad`, `pw-lepton-service-users-dark-mode`, `pw-lepton-service-users-mobile-390`, `pw-lepton-service-users-keyboard-create` |
 
 ## Sign-in and delivery
 
@@ -120,13 +120,13 @@ Lab-only routes, never mounted on a production host:
 | `GET /api/test/mock-providers` | What the mocks received |
 | `POST /api/test/mock-providers/reset` and `.../fail/{provider}/{status}` | Clear the record; make a provider answer with a status |
 
-## Bots
+## Service users
 
-The Bots pages (`/user/bots`) run against Gauge's bot gate, a "Spectra readers"
-group with no owners, and an in-memory token store in `src/bots.rs`. The token
-store hands out random `labtk_` secrets and counts them per bot; it stands in
+The Service users pages (`/user/service-users`) run against Gauge's service user gate, a "Spectra readers"
+group with no owners, and an in-memory token store in `src/service_users.rs`. The token
+store hands out random `labtk_` secrets and counts them per service user; it stands in
 for a host's real token service, which a host covers in its own tests. Group
-grants go through Gauge for real, so only a super user can put a bot in Spectra
+grants go through Gauge for real, so only a super user can put a service user in Spectra
 readers here, and that asks for an authenticator code.
 
 Accessibility checks run axe (`@axe-core/playwright`, WCAG 2 A and AA) on the
@@ -138,7 +138,7 @@ Lab-only route, never mounted on a production host:
 
 | Route | Role |
 |-------|------|
-| `POST /api/test/bots` | `join_creators` and `super_user` (by email), `seed_bots` (create and optionally pause bots for a user), `seed_tokens` (pretend a bot has N tokens), `in_readers` (is a bot in Spectra readers) |
+| `POST /api/test/service-users` | `join_creators` and `super_user` (by email), `seed_service_users` (create and optionally pause service users for a user), `seed_tokens` (pretend a service user has N tokens), `in_readers` (is a service user in Spectra readers) |
 
 `pw-account-change-email-happy` requires Mailpit and asserts “Verification sent…” plus a message to the new address.
 

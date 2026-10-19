@@ -1,7 +1,7 @@
 //! The one-time token reveal, with copy buttons and setup commands.
 //!
 //! The secret lives only in a signal owned by the page that minted it. "Done"
-//! returns to the Bots page, which drops that page and the signal with it.
+//! returns to the Service users page, which drops that page and the signal with it.
 //! Nothing stores the secret, so a reload or the back button never shows it
 //! again.
 
@@ -10,9 +10,9 @@ use leptos_router::hooks::use_navigate;
 use uf_product::components::{Body1, Body1Strong, Subtitle2};
 use uf_product::primitives::*;
 
-use crate::bots::types::MintedTokenView;
 use crate::clipboard::copy_text;
 use crate::paths;
+use crate::service_users::types::MintedTokenView;
 
 /// How long a copy button says "Copied".
 const COPIED_MS: u64 = 2000;
@@ -61,7 +61,7 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
         if let Some(el) = web_sys::window()
             .and_then(|w| w.document())
             .and_then(|d| {
-                d.query_selector("[data-testid=bot-token-copy] button")
+                d.query_selector("[data-testid=service-user-token-copy] button")
                     .ok()
                     .flatten()
             })
@@ -78,9 +78,9 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
             view! {
                 <Flex vertical=true gap=FlexGap::Small>
                     <Body1>{step.title}</Body1>
-                    <div data-testid="bot-token-setup-code"><Code text=step.code.clone() /></div>
+                    <div data-testid="service-user-token-setup-code"><Code text=step.code.clone() /></div>
                     <Flex justify=FlexJustify::End>
-                        <CopyButton text=step.code label="Copy commands" test_id="bot-token-setup-copy" />
+                        <CopyButton text=step.code label="Copy commands" test_id="service-user-token-setup-copy" />
                     </Flex>
                 </Flex>
             }
@@ -88,7 +88,7 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
         .collect_view();
 
     view! {
-        <div data-testid="bot-token-reveal">
+        <div data-testid="service-user-token-reveal">
             <Card elevation=MaterialElevation::Raised>
                 <CardHeader><Subtitle2>{format!("Token for @{handle}")}</Subtitle2></CardHeader>
                 <CardContent>
@@ -97,22 +97,22 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
                             "Copy this token now. You won't see it again."
                         </MessageBar>
                         <Flex vertical=true gap=FlexGap::Small>
-                            <div data-testid="bot-token-secret"><Code text=secret.clone() /></div>
+                            <div data-testid="service-user-token-secret"><Code text=secret.clone() /></div>
                             <Flex justify=FlexJustify::End>
-                                <CopyButton text=secret label="Copy token" test_id="bot-token-copy" />
+                                <CopyButton text=secret label="Copy token" test_id="service-user-token-copy" />
                             </Flex>
                         </Flex>
                         <Divider />
                         <Subtitle2>"Add it to Claude Code"</Subtitle2>
                         {setup}
-                        <div data-testid="bot-token-summary"><Body1Strong>{summary}</Body1Strong></div>
+                        <div data-testid="service-user-token-summary"><Body1Strong>{summary}</Body1Strong></div>
                     </Flex>
                 </CardContent>
                 <CardFooter>
-                    <div data-testid="bot-token-done">
+                    <div data-testid="service-user-token-done">
                         <Button
                             appearance=ButtonAppearance::Primary
-                            on_click=Callback::new(move |_| navigate(paths::BOTS, Default::default()))
+                            on_click=Callback::new(move |_| navigate(paths::SERVICE_USERS, Default::default()))
                         >
                             "Done"
                         </Button>

@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     let state_shell = state.clone();
     let valence_router = Arc::clone(&state.valence_router);
     let auth_services_for_ctx = Arc::clone(&auth_services);
-    let lab_tokens = Arc::new(lepton_uf_app_e2e::bots::LabTokens::default());
+    let lab_tokens = Arc::new(lepton_uf_app_e2e::service_users::LabTokens::default());
     let lab_tokens_for_ctx = Arc::clone(&lab_tokens);
     // Lepton holds uploads in a quarantine store until the scanner clears them.
     let file_layout = blob_stores_from_env()?;
@@ -79,7 +79,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/test/delivery-admin",
             post(lepton_uf_app_e2e::seed::delivery_admin),
         )
-        .route("/api/test/bots", post(lepton_uf_app_e2e::bots::bot_lab))
+        .route(
+            "/api/test/service-users",
+            post(lepton_uf_app_e2e::service_users::service_user_lab),
+        )
         .merge(lepton_uf_app_e2e::mock_providers::routes())
         .route(
             "/health",
@@ -96,8 +99,10 @@ async fn main() -> anyhow::Result<()> {
                 uf_product::permissions::provide_permission_backend(Arc::new(
                     lepton_uf_app_e2e::permissions::LabPermissionBackend,
                 ));
-                lepton_app::bots::provide_bot_access_backend(Arc::new(
-                    lepton_uf_app_e2e::bots::LabBotAccess::new(Arc::clone(&lab_tokens_for_ctx)),
+                lepton_app::service_users::provide_service_user_access_backend(Arc::new(
+                    lepton_uf_app_e2e::service_users::LabServiceUserAccess::new(Arc::clone(
+                        &lab_tokens_for_ctx,
+                    )),
                 ));
             },
             move || {
