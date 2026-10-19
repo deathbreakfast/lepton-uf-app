@@ -19,7 +19,8 @@ fn request() -> StepUpRequest {
     StepUpRequest {
         title: "Confirm it's you".to_string(),
         description: Some(
-            "Enter the code from your authenticator app to add your bot to a group.".to_string(),
+            "Enter the code from your authenticator app to add your service user to a group."
+                .to_string(),
         ),
         policy: StepUpPolicy::Totp,
     }

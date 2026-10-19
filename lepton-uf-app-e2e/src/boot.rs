@@ -338,9 +338,9 @@ pub async fn boot_platform() -> anyhow::Result<(
     crate::permissions::sync_registered_manifests(&system)
         .await
         .context("permission manifest sync")?;
-    crate::bots::boot_bots(&system)
+    crate::service_users::boot_service_users(&system)
         .await
-        .context("bot gate and lab groups")?;
+        .context("service user gate and lab groups")?;
     let delivery = uf_lepton_delivery_boot::install_delivery(
         &system,
         uf_lepton_delivery_boot::DeliveryOptions::new("http://localhost:3140"),

@@ -1,4 +1,4 @@
-//! `/user/bots`: the viewer's bots, with the empty, no-permission, limit and
+//! `/user/service-users`: the viewer's service users, with the empty, no-permission, limit and
 //! not-set-up states.
 
 use leptos::prelude::*;
@@ -10,24 +10,24 @@ use uf_product::components::{
 use uf_product::primitives::*;
 
 use super::error::friendly_error;
-use super::server::get_bots_overview;
-use super::types::{BotRow, BotState, BotsOverview};
+use super::server::get_service_users_overview;
+use super::types::{ServiceUserRow, ServiceUserState, ServiceUsersOverview};
 use crate::paths;
 
-const INTRO: &str = "A bot is an account that tools like Claude Code use to call this site for you, with only the access you give it.";
+const INTRO: &str = "A service user is an account that a tool, such as an MCP client like Claude Code, a CI job, or a webhook consumer, uses to call this site for you, with only the access you give it.";
 
-/// `/user/bots` page.
+/// `/user/service-users` page.
 ///
 /// Wrap in [`uf_product::routes::RequireAuthenticated`] at the route.
 #[component]
-pub fn BotsPage() -> impl IntoView {
-    let overview = Resource::new(|| (), |()| get_bots_overview());
+pub fn ServiceUsersPage() -> impl IntoView {
+    let overview = Resource::new(|| (), |()| get_service_users_overview());
 
     view! {
-        <ContentContainer max_width="900px".to_string() data_testid="bots-page".to_string()>
+        <ContentContainer max_width="900px".to_string() data_testid="service-users-page".to_string()>
             <Flex vertical=true gap=FlexGap::Large>
                 <Flex vertical=true gap=FlexGap::Small>
-                    <Title3>"Bots"</Title3>
+                    <Title3>"Service users"</Title3>
                     <Caption2>{INTRO}</Caption2>
                 </Flex>
                 <Suspense fallback=|| view! {
@@ -39,9 +39,9 @@ pub fn BotsPage() -> impl IntoView {
                     {move || overview.get().map(|res| match res {
                         Ok(o) => view! { <Overview overview=o /> }.into_any(),
                         Err(e) => view! {
-                            <div data-testid="bots-load-error">
+                            <div data-testid="service-users-load-error">
                                 <MessageBar intent=MessageBarIntent::Error>
-                                    {format!("Couldn't load your bots. {}", friendly_error(&e.to_string()))}
+                                    {format!("Couldn't load your service users. {}", friendly_error(&e.to_string()))}
                                 </MessageBar>
                             </div>
                         }.into_any(),
@@ -53,30 +53,34 @@ pub fn BotsPage() -> impl IntoView {
 }
 
 #[component]
-fn Overview(overview: BotsOverview) -> impl IntoView {
+fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
     let navigate = use_navigate();
     let at_limit = overview.at_limit();
     let can_create = overview.can_create;
-    let count = format!("{} of {} bots", overview.bots.len(), overview.limit);
+    let count = format!(
+        "{} of {} service users",
+        overview.service_users.len(),
+        overview.limit
+    );
     let create_disabled = Signal::derive(move || at_limit || !can_create);
 
-    if overview.bots.is_empty() {
+    if overview.service_users.is_empty() {
         return if can_create {
             let nav = navigate.clone();
             view! {
-                <div data-testid="bots-empty">
+                <div data-testid="service-users-empty">
                     <EmptyState
                         icon=icondata::AiRobotOutlined
-                        message="No bots yet"
+                        message="No service users yet"
                         description=INTRO
                     >
                         <EmptyStateCallToAction slot:call_to_action>
                             <Button
                                 appearance=ButtonAppearance::Primary
                                 icon=icondata::AiPlusOutlined
-                                on_click=Callback::new(move |_| nav(paths::BOTS_NEW, Default::default()))
+                                on_click=Callback::new(move |_| nav(paths::SERVICE_USERS_NEW, Default::default()))
                             >
-                                "Create bot"
+                                "Create service user"
                             </Button>
                         </EmptyStateCallToAction>
                     </EmptyState>
@@ -85,12 +89,12 @@ fn Overview(overview: BotsOverview) -> impl IntoView {
             .into_any()
         } else {
             view! {
-                <div data-testid="bots-no-permission">
+                <div data-testid="service-users-no-permission">
                     <EmptyState
                         illustration_src=EMPTYSTATE_LOCK_ILLUSTRATION
                         illustration_alt="Locked"
-                        message="You can't create bots yet"
-                        description="Ask a super user to add you to the Bot creators group."
+                        message="You can't create service users yet"
+                        description="Ask a super user to add you to the Service user creators group."
                     />
                 </div>
             }
@@ -100,19 +104,19 @@ fn Overview(overview: BotsOverview) -> impl IntoView {
 
     view! {
         <Flex justify=FlexJustify::SpaceBetween align=FlexAlign::Center wrap=FlexWrap::Wrap gap=FlexGap::Medium>
-            <div data-testid="bots-count"><Body1Strong>{count}</Body1Strong></div>
+            <div data-testid="service-users-count"><Body1Strong>{count}</Body1Strong></div>
             <Show when=move || can_create>
                 {
                     let nav = navigate.clone();
                     view! {
-                        <div data-testid="bots-create">
+                        <div data-testid="service-users-create">
                             <Button
                                 appearance=ButtonAppearance::Primary
                                 icon=icondata::AiPlusOutlined
                                 disabled=create_disabled
-                                on_click=Callback::new(move |_| nav(paths::BOTS_NEW, Default::default()))
+                                on_click=Callback::new(move |_| nav(paths::SERVICE_USERS_NEW, Default::default()))
                             >
-                                "Create bot"
+                                "Create service user"
                             </Button>
                         </div>
                     }
@@ -120,28 +124,28 @@ fn Overview(overview: BotsOverview) -> impl IntoView {
             </Show>
         </Flex>
         <Show when=move || can_create && at_limit>
-            <div data-testid="bots-at-limit">
-                <Caption2>"You have the most bots allowed. Delete one to make room."</Caption2>
+            <div data-testid="service-users-at-limit">
+                <Caption2>"You have the most service users allowed. Delete one to make room."</Caption2>
             </div>
         </Show>
         <Show when=move || !can_create>
-            <div data-testid="bots-cannot-create">
+            <div data-testid="service-users-cannot-create">
                 <MessageBar intent=MessageBarIntent::Info>
-                    "You can't create more bots. Ask a super user to add you to the Bot creators group."
+                    "You can't create more service users. Ask a super user to add you to the Service user creators group."
                 </MessageBar>
             </div>
         </Show>
         <Show when=move || !overview.tokens_configured>
-            <div data-testid="bots-not-configured">
+            <div data-testid="service-users-not-configured">
                 <MessageBar intent=MessageBarIntent::Warning>
-                    "This site isn't set up to give bots tokens yet. You can still create bots."
+                    "This site isn't set up to give service users tokens yet. You can still create service users."
                 </MessageBar>
             </div>
         </Show>
-        <div data-testid="bots-list">
+        <div data-testid="service-users-list">
             <Flex vertical=true gap=FlexGap::Medium>
-                {overview.bots.into_iter().map(|bot| {
-                    view! { <BotCard bot=bot tokens_configured=overview.tokens_configured /> }
+                {overview.service_users.into_iter().map(|service_user| {
+                    view! { <ServiceUserCard service_user=service_user tokens_configured=overview.tokens_configured /> }
                 }).collect_view()}
             </Flex>
         </div>
@@ -150,22 +154,28 @@ fn Overview(overview: BotsOverview) -> impl IntoView {
 }
 
 #[component]
-fn BotCard(bot: BotRow, tokens_configured: bool) -> impl IntoView {
+fn ServiceUserCard(service_user: ServiceUserRow, tokens_configured: bool) -> impl IntoView {
     let navigate = use_navigate();
-    let paused = bot.state == BotState::Paused;
-    let (badge_color, badge_text) = match bot.state {
-        BotState::Active => (BadgeColor::Success, "Active"),
-        BotState::Paused => (BadgeColor::Warning, "Paused"),
+    let paused = service_user.state == ServiceUserState::Paused;
+    let (badge_color, badge_text) = match service_user.state {
+        ServiceUserState::Active => (BadgeColor::Success, "Active"),
+        ServiceUserState::Paused => (BadgeColor::Warning, "Paused"),
     };
-    let token_path = paths::bots_token(&bot.id);
-    let subtitle = format!("{} · Created {}", bot.display_name, bot.created_on);
-    let test_id = format!("bot-card-{}", bot.handle);
+    let token_path = paths::service_users_token(&service_user.id);
+    let subtitle = format!(
+        "{} · Created {}",
+        service_user.display_name, service_user.created_on
+    );
+    let test_id = format!("service-user-card-{}", service_user.handle);
 
     view! {
         <div data-testid=test_id>
             <Card>
                 <CardHeader>
-                    <Body1Strong>{format!("@{}", bot.handle)}</Body1Strong>
+                    <Flex gap=FlexGap::Small align=FlexAlign::Center>
+                        <Body1Strong>{format!("@{}", service_user.handle)}</Body1Strong>
+                        <ServiceUserBadge />
+                    </Flex>
                     <CardHeaderDescription slot>
                         <Caption2>{subtitle}</Caption2>
                     </CardHeaderDescription>
@@ -179,7 +189,7 @@ fn BotCard(bot: BotRow, tokens_configured: bool) -> impl IntoView {
                         </Badge>
                     </CardHeaderAction>
                 </CardHeader>
-                {bot.description.map(|d| view! { <CardContent><Body1>{d}</Body1></CardContent> })}
+                {service_user.description.map(|d| view! { <CardContent><Body1>{d}</Body1></CardContent> })}
                 <Show when=move || tokens_configured>
                     {
                         let nav = navigate.clone();
@@ -196,7 +206,7 @@ fn BotCard(bot: BotRow, tokens_configured: bool) -> impl IntoView {
                                         "New token"
                                     </Button>
                                     <Show when=move || paused>
-                                        <Caption2>"Paused bots can't get tokens."</Caption2>
+                                        <Caption2>"Paused service users can't get tokens."</Caption2>
                                     </Show>
                                 </Flex>
                             </CardFooter>
@@ -205,5 +215,17 @@ fn BotCard(bot: BotRow, tokens_configured: bool) -> impl IntoView {
                 </Show>
             </Card>
         </div>
+    }
+}
+
+/// Marks a handle as a service user so it is not read as a person's name.
+#[component]
+pub fn ServiceUserBadge() -> impl IntoView {
+    view! {
+        <span data-testid="service-user-badge">
+            <Badge appearance=BadgeAppearance::Outline size=BadgeSize::Small color=BadgeColor::Informative>
+                "Service user"
+            </Badge>
+        </span>
     }
 }

@@ -7,13 +7,13 @@ pub mod app;
 #[cfg(feature = "ssr")]
 pub mod boot;
 #[cfg(feature = "ssr")]
-pub mod bots;
-#[cfg(feature = "ssr")]
 pub mod mock_providers;
 #[cfg(feature = "ssr")]
 pub mod permissions;
 #[cfg(feature = "ssr")]
 pub mod seed;
+#[cfg(feature = "ssr")]
+pub mod service_users;
 
 pub use app::{shell, App};
 
