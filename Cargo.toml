@@ -129,6 +129,7 @@ inventory = "0.3"
 uf-product = { git = "https://github.com/unified-field-dev/unified-field-product", package = "uf-product", branch = "main", default-features = false }
 uf-integrations = { git = "https://github.com/unified-field-dev/unified-field-product", package = "uf-integrations", branch = "main", default-features = false }
 uf-product-macros = { git = "https://github.com/unified-field-dev/unified-field-product", package = "uf-product-macros", branch = "main" }
+uf-search-core = { git = "https://github.com/unified-field-dev/unified-field-product", package = "uf-search-core", branch = "main", default-features = false }
 
 lepton-auth = { git = "https://github.com/unified-field-dev/lepton", branch = "main", default-features = false }
 lepton-auth-ui = { git = "https://github.com/unified-field-dev/lepton", branch = "main", default-features = false }
