@@ -29,6 +29,8 @@ meson-leptos = { workspace = true, default-features = false }
 uf-product = { workspace = true, default-features = false }
 uf-integrations = { workspace = true, default-features = false }
 uf-product-macros = { workspace = true }
+uf-search-core = { workspace = true }
+inventory = { workspace = true }
 lepton-auth = { workspace = true, default-features = false }
 lepton-auth-ui = { workspace = true, default-features = false }
 lepton-shell = { workspace = true, default-features = false }
@@ -81,8 +83,12 @@ ssr = [
     "orbital-primitives/ssr",
     "higgs/ssr",
     "uf-product/ssr",
+    "uf-search-core/ssr",
     "uf-integrations/ssr",
     "lepton-auth/ssr",
     "lepton-auth/totp",
     "lepton-auth-ui/ssr",
     "lepton-shell/ssr"]
+
+[dev-dependencies]
+tokio = { workspace = true }

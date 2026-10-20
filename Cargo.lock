@@ -2440,6 +2440,7 @@ dependencies = [
  "http",
  "icondata",
  "icondata_core",
+ "inventory",
  "js-sys",
  "lepton-auth",
  "lepton-auth-ui",
@@ -2456,10 +2457,12 @@ dependencies = [
  "orbital-theme",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "uf-integrations",
  "uf-product",
  "uf-product-macros",
+ "uf-search-core",
  "uf-valence",
  "url",
  "wasm-bindgen",
@@ -6396,6 +6399,7 @@ dependencies = [
 [[package]]
 name = "uf-lepton-delivery-boot"
 version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/uf-oauth-boot?branch=main#63b523adb9a344bd70302da4e68725ef41ed3d1b"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6438,6 +6442,7 @@ dependencies = [
 [[package]]
 name = "uf-oauth-boot"
 version = "0.1.0"
+source = "git+https://github.com/unified-field-dev/uf-oauth-boot?branch=main#63b523adb9a344bd70302da4e68725ef41ed3d1b"
 dependencies = [
  "anyhow",
  "lepton-auth",
@@ -7481,10 +7486,6 @@ dependencies = [
  "log",
  "simd-adler32",
 ]
-
-[[patch.unused]]
-name = "lepton-spectra-telemetry"
-version = "0.1.0"
 
 [[patch.unused]]
 name = "uf-valence-backend-hybrid"

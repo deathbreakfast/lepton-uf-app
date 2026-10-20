@@ -22,6 +22,7 @@ mod create;
 mod error;
 mod list_page;
 mod port;
+mod search;
 mod server;
 mod step_up;
 mod token;
@@ -39,6 +40,9 @@ pub use port::{
     resolve_choices, summarize, token_scopes, AccessKind, ServiceUserAccessChoice,
     ServiceUserAccessError,
 };
+#[cfg(feature = "ssr")]
+pub use search::ServiceUserSearchSource;
+pub use search::{ServiceUserSearchSourceId, SERVICE_USER_SEARCH_SOURCE_ID};
 pub use server::{
     check_service_user_handle, create_service_user_profile, get_service_user_row,
     get_service_users_overview, grant_service_user_access, mint_service_user_token,
