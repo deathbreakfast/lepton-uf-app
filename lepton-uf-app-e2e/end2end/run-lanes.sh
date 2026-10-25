@@ -123,7 +123,11 @@ run_lane() {
   local lane_env=${LANE_ENV:-}
   lane_env=${lane_env//\{port\}/$port}
   t0=$(now)
-  ( cd "$o/srv" && exec env ${SERVER_ENV:-} $lane_env \
+  # SERVER_CWD=root runs the server from the repo root, for hosts that read
+  # Cargo.toml at startup and keep no files of their own.
+  local cwd=$o/srv
+  [ "${SERVER_CWD:-}" = root ] && cwd=$root
+  ( cd "$cwd" && exec env ${SERVER_ENV:-} $lane_env \
       LEPTOS_OUTPUT_NAME="$OUTPUT_NAME" LEPTOS_SITE_ROOT="$site" LEPTOS_SITE_PKG_DIR=pkg \
       LEPTOS_SITE_ADDR="127.0.0.1:$port" LEPTOS_ENV=$leptos_env \
       "$bin" >"$o/server.log" 2>&1 </dev/null ) &
@@ -139,7 +143,9 @@ run_lane() {
     if [ "$serial" = 0 ] && [ "$targeted" = 0 ]; then
       if [ -f "$o/list.txt" ]; then args=(--test-list="$o/list.txt"); else args=(--shard="$i/$lanes"); fi
     fi
-    env "${BASE_URL_VAR:-PLAYWRIGHT_BASE_URL}=http://${BASE_HOST:-127.0.0.1}:$port" \
+    # SERVER_ENV reaches the specs too, as a CI step's env does (some read
+    # the seed token from it).
+    env ${SERVER_ENV:-} "${BASE_URL_VAR:-PLAYWRIGHT_BASE_URL}=http://${BASE_HOST:-127.0.0.1}:$port" \
         PLAYWRIGHT_JSON_OUTPUT_FILE="$o/results.json" \
       timeout --kill-after=30 "$budget" \
       npx playwright test --workers=1 --retries=0 --reporter=list,json --output="$o/test-results" \
