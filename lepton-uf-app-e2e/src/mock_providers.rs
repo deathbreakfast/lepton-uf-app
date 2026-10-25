@@ -1,7 +1,7 @@
 //! Lab stand-ins for SendGrid and Twilio Verify, plus the control routes
 //! Playwright uses to read what was sent and to make a provider fail.
 //!
-//! The Twilio route also forwards each code to the SMS sink on `:8099`, so the
+//! The Twilio route also forwards each code to the SMS sink (`UF_SMS_SINK_URL`, default `:8099`), so the
 //! existing "read the OTP from the sink" assertions keep working when the cell's
 //! text messages go through Twilio Verify settings. Lab-only: never mount these
 //! on a production host.
@@ -114,7 +114,10 @@ async fn twilio_verifications(
     });
     if let Ok(client) = reqwest::Client::builder().build() {
         let _ = client
-            .post("http://127.0.0.1:8099/v1/messages")
+            .post(format!(
+                "{}/v1/messages",
+                crate::boot::lab_env("UF_SMS_SINK_URL", "http://127.0.0.1:8099")
+            ))
             .json(&payload)
             .send()
             .await;
