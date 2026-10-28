@@ -257,6 +257,10 @@ fn seed_lab_env_defaults() {
             "NEUTRINO_MASTER_KEY",
             "0000000000000000000000000000000000000000000000000000000000000000",
         ),
+        // No Boson runtime is installed here (see module docs), so a scanned
+        // upload would sit in `PendingVirusScan` forever. Skip straight to the
+        // available store, matching the synchronous-delivery pattern above.
+        ("MESON_VIRUS_SCAN", "off"),
     ];
     for (key, value) in DEFAULTS {
         if std::env::var_os(key).is_none() {
