@@ -109,14 +109,16 @@ mod ssr {
                     None => false,
                 };
                 let needle = query_text.trim().to_lowercase();
-                // In-memory backends only apply equality predicates, so scan a bounded
-                // window and filter here. Valence's read rule already hides rows the
-                // caller may not read.
+                // In-memory backends only apply equality predicates, so fetch the rows the
+                // caller may read and filter here. Valence's read rule already scopes this to
+                // the caller's own service users (or every owner's, for an administrator). An
+                // undersized window would silently drop matches that sort after it, so take the
+                // whole readable set; the query clamps the fetch to the platform maximum.
                 let rows = ServiceUserAccount::query(
                     v,
                     valence::use_!(r"In the **service user** search, we **list service users** so a person can pick one of their own (or any, for an administrator) and show it by display name and owner. Service users the person may not read are never included."),
                 )
-                .limit(max_results.saturating_mul(20).max(50))
+                .limit(valence::MAX_QUERY_LIMIT)
                 .await?;
 
                 let mut out = Vec::new();

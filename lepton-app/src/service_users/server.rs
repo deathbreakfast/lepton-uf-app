@@ -40,6 +40,13 @@ mod ssr {
             .ok_or_else(|| access_err("backend", &ServiceUserAccessError::NotConfigured))
     }
 
+    /// Verify a fresh authenticator code, the barrier a minted token stands behind.
+    pub async fn require_fresh_code(totp_code: &str) -> Result<(), ServerFnError> {
+        lepton_auth::verify_fresh_totp(totp_code)
+            .await
+            .map_err(|e| e.to_server_fn_error())
+    }
+
     pub fn service_user_err(op: &'static str, e: &ServiceUserError) -> ServerFnError {
         if matches!(e, ServiceUserError::Store | ServiceUserError::Gate(_)) {
             tracing::warn!(target: "lepton_app.service_users", op, reason_class = e.reason_class(), "service user server fn failed");
@@ -300,7 +307,8 @@ pub async fn grant_service_user_access(
 
 /// Mint a token for the service user. Step 3 of the create flow, and the "New token"
 /// button on the Service users page. The response is the only time the secret is sent.
-#[uf_product_macros::server]
+/// Needs a fresh authenticator code, and only hands out access the caller may grant.
+#[uf_product_macros::server(step_up = "fresh")]
 pub async fn mint_service_user_token(
     /// Service user id.
     service_user_id: String,
@@ -310,13 +318,16 @@ pub async fn mint_service_user_token(
     ttl: TokenTtl,
     /// Picked choice keys; their token grants go on the token.
     keys: Vec<String>,
+    /// Fresh authenticator code confirming the mint.
+    totp_code: String,
 ) -> Result<MintedTokenView, ServerFnError> {
     #[cfg(feature = "ssr")]
     {
         use crate::service_users::port::{
-            resolve_choices, summarize, token_scopes, ServiceUserAccessError,
+            resolve_choices, summarize, token_scopes, AccessKind, ServiceUserAccessError,
         };
 
+        ssr::require_fresh_code(&totp_code).await?;
         let (v, _) = ssr::session().await?;
         let id = ssr::parse_id(&service_user_id)?;
         let backend = ssr::backend()?;
@@ -329,6 +340,21 @@ pub async fn mint_service_user_token(
         }
         let chosen =
             resolve_choices(backend.choices(), &keys).map_err(|e| ssr::access_err("mint", &e))?;
+        // A token can only carry access the caller may grant, the same rule step 2 uses.
+        for choice in &chosen {
+            if let AccessKind::GroupMembership { group_id, .. } = choice.kind {
+                let allowed = backend
+                    .can_grant_group(&v, group_id)
+                    .await
+                    .map_err(|e| ssr::access_err("mint", &e))?;
+                if !allowed {
+                    return Err(ssr::access_err(
+                        "mint",
+                        &ServiceUserAccessError::NotGrantable { choice: choice.key },
+                    ));
+                }
+            }
+        }
         let scopes = token_scopes(&chosen);
         if scopes.is_empty() {
             return Err(ssr::access_err(
@@ -361,7 +387,7 @@ pub async fn mint_service_user_token(
     }
     #[cfg(not(feature = "ssr"))]
     {
-        let _ = (service_user_id, label, ttl, keys);
+        let _ = (service_user_id, label, ttl, keys, totp_code);
         Err(ServerFnError::new("server only"))
     }
 }

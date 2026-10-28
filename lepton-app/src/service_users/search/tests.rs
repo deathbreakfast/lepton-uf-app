@@ -253,6 +253,38 @@ async fn query_text_filters_by_name_or_handle_and_limit_applies() {
     assert_eq!(search(&owner, "nothing-matches", 10).await.len(), 0);
 }
 
+#[tokio::test]
+async fn search_returns_matches_beyond_the_old_window() {
+    setup();
+    let system = store(Actor::System {
+        operation: "test".to_string(),
+    });
+    // More readable service users than the old fixed 50-row scan window, so a bounded
+    // window would silently drop matches. One per owner keeps each under the quota.
+    for i in 0..60 {
+        seed_service_user(
+            &system,
+            &format!("maker-fill-{i}"),
+            &format!("fill-{i}"),
+            "Filler",
+        )
+        .await;
+    }
+    for name in ["pick-a", "pick-b", "pick-c"] {
+        seed_service_user(&system, &format!("maker-{name}"), name, "Zzz pick target").await;
+    }
+    seed_user(&system, "super-s").await;
+
+    // A manage-any administrator reads every owner's service users; all three matches
+    // come back even though they sit past the old window.
+    let items = search(&as_user(&system, "super-s"), "pick", 10).await;
+
+    assert_eq!(
+        titles(&items),
+        ["Zzz pick target", "Zzz pick target", "Zzz pick target"]
+    );
+}
+
 #[test]
 fn source_id_matches_the_registered_key() {
     use super::ServiceUserSearchSourceId;
