@@ -3,7 +3,6 @@
 mod reveal;
 
 use leptos::prelude::*;
-use leptos::task::spawn_local_scoped;
 use leptos_router::hooks::{use_navigate, use_params_map};
 use uf_product::components::{
     Body1, Body1Strong, Caption2, ContentContainer, EmptyState, EmptyStateCallToAction,
@@ -16,6 +15,7 @@ pub use reveal::TokenReveal;
 use super::error::friendly_error;
 use super::list_page::ServiceUserBadge;
 use super::server::{get_service_user_row, mint_service_user_token, service_user_access_choices};
+use super::step_up::spawn_with_fresh_code;
 use super::types::{AccessChoiceView, MintedTokenView, ServiceUserRow, ServiceUserState, TokenTtl};
 use crate::paths;
 
@@ -67,7 +67,6 @@ fn Fields(
     let label = RwSignal::new(String::new());
     let ttl = RwSignal::new(Some("30".to_string()));
     let error = RwSignal::new(None::<String>);
-    let pending = RwSignal::new(false);
     let picked: Vec<(AccessChoiceView, RwSignal<bool>)> = choices
         .into_iter()
         .map(|c| {
@@ -84,13 +83,11 @@ fn Fields(
                 .collect::<Vec<_>>()
         })
     };
-    let can_submit = Signal::derive(move || {
-        !pending.get() && !label.with(|l| l.trim().is_empty()) && !keys().is_empty()
-    });
+    let can_submit =
+        Signal::derive(move || !label.with(|l| l.trim().is_empty()) && !keys().is_empty());
 
     let submit = move |_| {
         error.set(None);
-        pending.set(true);
         let id = service_user_id.clone();
         let l = label.get_untracked();
         let t = ttl
@@ -99,16 +96,11 @@ fn Fields(
             .and_then(TokenTtl::from_days_str)
             .unwrap_or_default();
         let k = keys();
-        spawn_local_scoped(async move {
-            // On success the reveal replaces this form, so only a failure
-            // touches the form's own signals.
-            match mint_service_user_token(id, l, t, k).await {
-                Ok(token) => on_minted.run(token),
-                Err(e) => {
-                    error.set(Some(friendly_error(&e.to_string()).to_string()));
-                    pending.set(false);
-                }
-            }
+        // Minting needs a fresh authenticator code. The step-up dialog collects it;
+        // on success the reveal replaces this form, so only a failure touches `error`.
+        spawn_with_fresh_code(error, on_minted, move |code| {
+            let (id, l, k) = (id.clone(), l.clone(), k.clone());
+            async move { mint_service_user_token(id, l, t, k, code).await }
         });
     };
 
@@ -150,7 +142,7 @@ fn Fields(
                 </Field>
                 {move || error.get().map(|e| view! {
                     <div data-testid="service-user-token-error">
-                        <MessageBar intent=MessageBarIntent::Error>{e}</MessageBar>
+                        <MessageBar intent=MessageBarIntent::Error>{friendly_error(&e)}</MessageBar>
                     </div>
                 })}
             </Flex>
@@ -159,7 +151,6 @@ fn Fields(
             <div data-testid="service-user-token-submit">
                 <Button
                     appearance=ButtonAppearance::Primary
-                    loading=pending
                     disabled=Signal::derive(move || !can_submit.get())
                     on_click=Callback::new(submit)
                 >

@@ -50,13 +50,29 @@ async function asSuperUser(page: Page, request: Request, auth: Auth, label: stri
   return { email, codes: new FreshCodes(totp_secret) };
 }
 
-/** Steps 2 and 3 with a token-only choice; returns the revealed secret. */
-async function tokenOnlyToReveal(page: Page): Promise<string> {
+/**
+ * Signed-in service user creator with an authenticator but no group-granting powers.
+ * Minting a token needs a fresh code, so every minting test uses one of these.
+ */
+async function asCreatorWithTotp(page: Page, request: Request, auth: Auth, label: string) {
+  const email = uniqueEmail(label);
+  const { totp_secret } = await auth.signInWithTotp({
+    email,
+    password: PASSWORD,
+    referer: "/user/account-settings",
+  });
+  await serviceUserLab(request, { action: "join_creators", email });
+  return { email, codes: new FreshCodes(totp_secret) };
+}
+
+/** Steps 2 and 3 with a token-only choice; answers the mint step-up and returns the secret. */
+async function tokenOnlyToReveal(page: Page, codes: FreshCodes): Promise<string> {
   await page.getByTestId("service-user-access-magnon-read").getByRole("checkbox").check();
   await page.getByTestId("service-user-access-continue").getByRole("button").click();
   await expect(page.getByTestId("service-user-token-label")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("service-user-token-label").locator("input").fill("Claude Code on laptop");
   await page.getByTestId("service-user-token-submit").getByRole("button").click();
+  await answerStepUp(page, await codes.next());
   const secret = page.getByTestId("service-user-token-secret");
   await expect(secret).toContainText("labtk_", { timeout: 30_000 });
   return (await secret.innerText()).trim();
@@ -123,6 +139,8 @@ test.describe("pw-lepton-service-users", () => {
     await page.getByTestId("service-user-token-label").locator("input").fill("Claude Code on laptop");
     await page.getByTestId("service-user-token-ttl").getByRole("radio", { name: "90 days" }).check();
     await page.getByTestId("service-user-token-submit").getByRole("button").click();
+    // Minting asks for a fresh code, separate from the group step-up above.
+    await answerStepUp(page, await codes.next());
 
     const reveal = page.getByTestId("service-user-token-reveal");
     await expect(reveal).toBeVisible({ timeout: 30_000 });
@@ -150,12 +168,12 @@ test.describe("pw-lepton-service-users", () => {
   });
 
   test("pw-lepton-service-users-reveal-once-happy", async ({ page, request, auth }) => {
-    await asCreator(page, request, auth, "once");
+    const { codes } = await asCreatorWithTotp(page, request, auth, "once");
     await openServiceUsers(page, "/user/service-users/new");
     const handle = `once-${Date.now()}`;
     await fillProfile(page, "Once", handle);
     await page.getByTestId("service-user-create-submit").getByRole("button").click();
-    const first = await tokenOnlyToReveal(page);
+    const first = await tokenOnlyToReveal(page, codes);
 
     await page.getByTestId("service-user-token-done").getByRole("button").click();
     await expect(page.getByTestId("service-users-page")).toBeVisible({ timeout: 30_000 });
@@ -170,6 +188,7 @@ test.describe("pw-lepton-service-users", () => {
     await page.getByTestId("service-user-token-scope-magnon-read").getByRole("checkbox").check();
     await page.getByTestId("service-user-token-label").locator("input").fill("Second");
     await page.getByTestId("service-user-token-submit").getByRole("button").click();
+    await answerStepUp(page, await codes.next());
     const second = (await page.getByTestId("service-user-token-secret").innerText()).trim();
     expect(second).toMatch(/^labtk_/);
     expect(second).not.toBe(first);
@@ -248,13 +267,15 @@ test.describe("pw-lepton-service-users", () => {
   });
 
   test("pw-lepton-service-users-token-limit-sad", async ({ page, request, auth }) => {
-    const email = await asCreator(page, request, auth, "tokcap");
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "tokcap");
     const [serviceUser] = await seedServiceUsers(request, email, `tokcap${Date.now()}`, 1);
     await serviceUserLab(request, { action: "seed_tokens", service_user_id: serviceUser.id, count: 5 });
     await openServiceUsers(page, `/user/service-users/${serviceUser.id}/token`);
     await page.getByTestId("service-user-token-scope-magnon-read").getByRole("checkbox").check();
     await page.getByTestId("service-user-token-label").locator("input").fill("Sixth");
     await page.getByTestId("service-user-token-submit").getByRole("button").click();
+    // The fresh-code step-up clears before the limit check rejects the sixth token.
+    await answerStepUp(page, await codes.next());
     await expect(page.getByTestId("service-user-token-error")).toContainText("5 active tokens", {
       timeout: 30_000,
     });
@@ -320,7 +341,7 @@ test.describe("pw-lepton-service-users", () => {
   });
 
   test("pw-lepton-service-users-keyboard-create", async ({ page, request, auth }) => {
-    await asCreator(page, request, auth, "keys");
+    const { codes } = await asCreatorWithTotp(page, request, auth, "keys");
     await openServiceUsers(page, "/user/service-users/new");
     const name = page.getByTestId("service-user-display-name").locator("input");
     await name.focus();
@@ -342,8 +363,48 @@ test.describe("pw-lepton-service-users", () => {
     await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3", {
       timeout: 30_000,
     });
-    await tokenOnlyToReveal(page);
+    await tokenOnlyToReveal(page, codes);
     await expect(page.getByTestId("service-user-token-copy").getByRole("button")).toBeFocused();
+  });
+
+  test("pw-su-mint-step-up-happy", async ({ page, request, auth }) => {
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "mintstepup");
+    // Both the default desktop viewport and a phone-sized one.
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      const [serviceUser] = await seedServiceUsers(request, email, `mint${viewport.width}-${Date.now()}`, 1);
+      await openServiceUsers(page, `/user/service-users/${serviceUser.id}/token`);
+      await page.getByTestId("service-user-token-scope-magnon-read").getByRole("checkbox").check();
+      await page.getByTestId("service-user-token-label").locator("input").fill("Claude Code on laptop");
+      await page.getByTestId("service-user-token-submit").getByRole("button").click();
+      // Minting now demands a fresh authenticator code before any secret appears.
+      await expect(page.getByTestId("step-up-dialog")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("service-user-token-secret")).toHaveCount(0);
+      await answerStepUp(page, await codes.next());
+      await expect(page.getByTestId("service-user-token-secret")).toContainText("labtk_", {
+        timeout: 30_000,
+      });
+    }
+  });
+
+  test("pw-su-mint-over-reach-sad", async ({ page, request, auth }) => {
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "overreach");
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      const [serviceUser] = await seedServiceUsers(request, email, `reach${viewport.width}-${Date.now()}`, 1);
+      await openServiceUsers(page, `/user/service-users/${serviceUser.id}/token`);
+      // This creator doesn't own Spectra readers, so it may not mint that scope.
+      await page.getByTestId("service-user-token-scope-spectra-read").getByRole("checkbox").check();
+      await page.getByTestId("service-user-token-label").locator("input").fill("Over reach");
+      await page.getByTestId("service-user-token-submit").getByRole("button").click();
+      // A valid code clears step-up; the server still refuses the access it can't grant.
+      await answerStepUp(page, await codes.next());
+      await expect(page.getByTestId("service-user-token-error")).toContainText("owners", {
+        timeout: 30_000,
+      });
+      await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
+      await expect(page.getByTestId("service-user-token-secret")).toHaveCount(0);
+    }
   });
 });
 
