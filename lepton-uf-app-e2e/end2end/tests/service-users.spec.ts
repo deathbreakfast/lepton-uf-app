@@ -250,6 +250,24 @@ test.describe("pw-lepton-service-users", () => {
     await expect(page.getByTestId("service-users-empty")).toBeVisible();
   });
 
+  test("pw-lepton-service-users-continue-pending-happy", async ({ page, request, auth }) => {
+    const { codes } = await asCreatorWithTotp(page, request, auth, "pending");
+    await openServiceUsers(page, "/user/service-users/new");
+    await fillProfile(page, "Pending", `pending-${Date.now()}`);
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    // Hold the grant request so the in-flight state can be seen.
+    await page.route(/grant_service_user_access/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 3_000));
+      await route.continue();
+    });
+    await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").check({ timeout: 30_000 });
+    const skip = page.getByTestId("service-user-access-skip").getByRole("button");
+    await page.getByTestId("service-user-access-continue").getByRole("button").click();
+    await expect(skip).toBeDisabled();
+    await expect(page.getByTestId("service-user-access-continue").getByRole("button")).toBeDisabled();
+    await answerStepUp(page, await codes.next());
+  });
+
   test("pw-lepton-service-users-access-not-grantable-sad", async ({ page, request, auth }) => {
     await asCreator(page, request, auth, "blocked");
     await openServiceUsers(page, "/user/service-users/new");
