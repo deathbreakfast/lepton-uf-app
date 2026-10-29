@@ -1,17 +1,20 @@
 //! Lab service user wiring: the Gauge service user gate, a "Spectra readers" stand-in group, a
-//! [`ServiceUserAccessBackend`] that keeps tokens in memory, and a seed route.
+//! [`ServiceUserAccessBackend`] that keeps tokens and group listings in memory, and a seed
+//! route.
 //!
 //! Lab-only. The token store is a stand-in for a host's real token service:
 //! it hands out random secrets, counts them per service user, and forgets them on
 //! restart. Group grants go through Gauge for real, under the signed-in
-//! person's Valence.
+//! person's Valence. Gauge can't yet list a service user's groups and permissions, so the
+//! detail page reads a memory copy of what was granted here or seeded by a test.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use lepton_app::service_users::{
     AccessKind, ClientSetupStep, MintedToken, RevealOnce, ServiceUserAccessBackend,
-    ServiceUserAccessChoice, ServiceUserAccessError, TokenTtl,
+    ServiceUserAccessChoice, ServiceUserAccessError, ServiceUserGroupView,
+    ServiceUserPermissionView, TokenTtl,
 };
 use lepton_auth::service_users::ServiceUserError;
 use lepton_identity::generated::ServiceUserAccountStatus;
@@ -20,7 +23,10 @@ use valence::{Actor, Model, Valence};
 
 /// Lab stand-in for the host's Spectra readers group.
 pub const LAB_READERS_GROUP_ID: &str = "spectra_readers";
+const LAB_READERS_GROUP_NAME: &str = "Spectra readers";
+const LAB_READERS_GROUP_DESCRIPTION: &str = "Lab stand-in for the host's Spectra readers group.";
 const LAB_READ_PERMISSION: &str = "lab.spectra.query";
+const LAB_READ_PERMISSION_DESCRIPTION: &str = "Query lab Spectra events.";
 /// Most active tokens per service user, matching the production token service.
 const MAX_TOKENS: usize = 5;
 
@@ -32,7 +38,7 @@ static CHOICES: &[ServiceUserAccessChoice] = &[
         help: "Joins Spectra readers. Its token can query Spectra.",
         kind: AccessKind::GroupMembership {
             group_id: LAB_READERS_GROUP_ID,
-            group_name: "Spectra readers",
+            group_name: LAB_READERS_GROUP_NAME,
         },
         token_scopes: &["spectra:read"],
     },
@@ -54,13 +60,86 @@ static CHOICES: &[ServiceUserAccessChoice] = &[
     },
 ];
 
-/// In-memory token counts per service user id.
+/// Groups and permissions the detail page lists for one service user.
+#[derive(Clone, Default)]
+struct LabMembership {
+    groups: Vec<ServiceUserGroupView>,
+    permissions: Vec<ServiceUserPermissionView>,
+}
+
+/// In-memory token counts and group listings per service user id.
 #[derive(Default)]
 pub struct LabTokens {
     by_service_user: Mutex<HashMap<String, usize>>,
+    memberships: Mutex<HashMap<String, LabMembership>>,
 }
 
 impl LabTokens {
+    /// Lab seed: list `groups` groups and `permissions` permissions for `service_user`,
+    /// replacing what it had.
+    pub fn seed_memberships(&self, service_user: &str, groups: usize, permissions: usize) {
+        let group_names: Vec<String> = (0..groups).map(|i| format!("Lab group {i:03}")).collect();
+        let membership = LabMembership {
+            groups: group_names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| ServiceUserGroupView {
+                    id: format!("lab_group_{i:03}"),
+                    name: name.clone(),
+                    description: format!("Seeded group {i}."),
+                })
+                .collect(),
+            permissions: (0..permissions)
+                .map(|i| ServiceUserPermissionView {
+                    name: format!("lab.seeded.perm_{i:03}"),
+                    description: format!("Seeded permission {i}."),
+                    via_group: group_names
+                        .get(i % groups.max(1))
+                        .cloned()
+                        .unwrap_or_default(),
+                })
+                .collect(),
+        };
+        if let Ok(mut m) = self.memberships.lock() {
+            m.insert(service_user.to_string(), membership);
+        }
+    }
+
+    /// Note that `service_user` joined the lab readers group.
+    fn record_readers_grant(&self, service_user: &str) -> Result<(), ServiceUserAccessError> {
+        let mut m = self
+            .memberships
+            .lock()
+            .map_err(|_| ServiceUserAccessError::Store {
+                reason_class: "lab_lock",
+            })?;
+        let entry = m.entry(service_user.to_string()).or_default();
+        if entry.groups.iter().any(|g| g.id == LAB_READERS_GROUP_ID) {
+            return Ok(());
+        }
+        entry.groups.push(ServiceUserGroupView {
+            id: LAB_READERS_GROUP_ID.to_string(),
+            name: LAB_READERS_GROUP_NAME.to_string(),
+            description: LAB_READERS_GROUP_DESCRIPTION.to_string(),
+        });
+        entry.permissions.push(ServiceUserPermissionView {
+            name: LAB_READ_PERMISSION.to_string(),
+            description: LAB_READ_PERMISSION_DESCRIPTION.to_string(),
+            via_group: LAB_READERS_GROUP_NAME.to_string(),
+        });
+        Ok(())
+    }
+
+    fn membership(&self, service_user: &str) -> Result<LabMembership, ServiceUserAccessError> {
+        let m = self
+            .memberships
+            .lock()
+            .map_err(|_| ServiceUserAccessError::Store {
+                reason_class: "lab_lock",
+            })?;
+        Ok(m.get(service_user).cloned().unwrap_or_default())
+    }
+
     /// Lab seed: pretend `service_user` already has `n` tokens.
     pub fn set_count(&self, service_user: &str, n: usize) {
         if let Ok(mut m) = self.by_service_user.lock() {
@@ -138,7 +217,28 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
     ) -> Result<(), ServiceUserAccessError> {
         gauge::service::add_group_member_service_user(group_id, service_user, v)
             .await
-            .map_err(|e| gauge_err(&e, choice))
+            .map_err(|e| gauge_err(&e, choice))?;
+        if group_id == LAB_READERS_GROUP_ID {
+            self.tokens.record_readers_grant(service_user.as_str())?;
+        }
+        Ok(())
+    }
+
+    async fn service_user_groups(
+        &self,
+        _v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserGroupView>, ServiceUserAccessError> {
+        // The caller already loaded the service user under its own Valence.
+        Ok(self.tokens.membership(service_user.as_str())?.groups)
+    }
+
+    async fn service_user_permissions(
+        &self,
+        _v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserPermissionView>, ServiceUserAccessError> {
+        Ok(self.tokens.membership(service_user.as_str())?.permissions)
     }
 
     async fn mint_token(
@@ -223,7 +323,7 @@ pub async fn boot_service_users(system: &Valence) -> anyhow::Result<()> {
                 description: "Lab stand-in for a Spectra query permission.".to_string(),
                 permissions: vec![PermissionInput {
                     name: LAB_READ_PERMISSION.to_string(),
-                    description: "Query lab Spectra events.".to_string(),
+                    description: LAB_READ_PERMISSION_DESCRIPTION.to_string(),
                 }],
             }],
         }],
@@ -232,8 +332,8 @@ pub async fn boot_service_users(system: &Valence) -> anyhow::Result<()> {
     gauge::resource_permissions::ensure_group_granted_permission(
         system,
         LAB_READERS_GROUP_ID,
-        "Spectra readers",
-        "Lab stand-in for the host's Spectra readers group.",
+        LAB_READERS_GROUP_NAME,
+        LAB_READERS_GROUP_DESCRIPTION,
         LAB_READ_PERMISSION,
         &[],
     )
@@ -283,6 +383,14 @@ pub enum ServiceUserLabRequest {
         service_user_id: String,
         count: usize,
     },
+    /// List `groups` groups and `permissions` permissions on the service user's detail page.
+    SeedMemberships {
+        service_user_id: String,
+        groups: usize,
+        permissions: usize,
+    },
+    /// Whether the service user is `active` or `suspended`.
+    Status { service_user_id: String },
     /// Whether the service user is in the lab Spectra readers group.
     InReaders { service_user_id: String },
 }
@@ -372,6 +480,25 @@ pub async fn service_user_lab(
         } => {
             tokens.set_count(&service_user_id, count);
             serde_json::json!({ "ok": true })
+        }
+        ServiceUserLabRequest::SeedMemberships {
+            service_user_id,
+            groups,
+            permissions,
+        } => {
+            tokens.seed_memberships(&service_user_id, groups, permissions);
+            serde_json::json!({ "ok": true })
+        }
+        ServiceUserLabRequest::Status { service_user_id } => {
+            let row = lepton_identity::generated::ServiceUserAccount::get(&service_user_id, &system, valence::use_!(r"**Test:** Lab host **reads a service user's status** so a Playwright run can check that a refused pause left it active. Only the lab harness uses this."))
+                .await
+                .map_err(|e| fail(e.into()))?
+                .ok_or_else(|| fail(anyhow::anyhow!("no service user")))?;
+            let state = match row.status() {
+                ServiceUserAccountStatus::Active => "active",
+                ServiceUserAccountStatus::Suspended => "suspended",
+            };
+            serde_json::json!({ "state": state })
         }
         ServiceUserLabRequest::InReaders { service_user_id } => {
             let group = gauge::generated::PermissionGroup::get(LAB_READERS_GROUP_ID, &system, valence::use_!(r"**Test:** Lab host **loads the lab Spectra readers group** so a Playwright run can check whether a service user joined it. Only the lab harness uses this."))

@@ -8,6 +8,7 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
 use std::sync::Arc;
 
@@ -52,6 +53,28 @@ pub struct ServiceUserAccessChoice {
     pub kind: AccessKind,
     /// Token grants this choice adds, for example `["spectra:read"]`.
     pub token_scopes: &'static [&'static str],
+}
+
+/// A group the service user is a member of, as its detail page lists it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceUserGroupView {
+    /// Gauge group id, for example `spectra_readers`.
+    pub id: String,
+    /// Group name, for example "Spectra readers".
+    pub name: String,
+    /// What the group is for. Empty when the group has no description.
+    pub description: String,
+}
+
+/// A permission the service user holds through one of its groups.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceUserPermissionView {
+    /// Permission name, for example `spectra.query`.
+    pub name: String,
+    /// What the permission allows. Empty when it has no description.
+    pub description: String,
+    /// Name of the group the permission comes through.
+    pub via_group: String,
 }
 
 /// Why the host could not give access or a token.
@@ -195,6 +218,44 @@ pub trait ServiceUserAccessBackend: Send + Sync {
         ttl: TokenTtl,
         scopes: &[&'static str],
     ) -> Result<MintedToken, ServiceUserAccessError>;
+
+    /// Groups `service_user` is a member of, for its detail page.
+    ///
+    /// Read them under `v` so the caller sees only what Gauge lets them see.
+    /// The default lists none, and the page shows its empty state; a host that
+    /// can't answer yet keeps the default.
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::ServiceUserNotFound`] or
+    /// [`ServiceUserAccessError::Store`].
+    async fn service_user_groups(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserGroupView>, ServiceUserAccessError> {
+        let _ = (v, service_user);
+        Ok(Vec::new())
+    }
+
+    /// Permissions `service_user` holds through its groups, for its detail page.
+    ///
+    /// A service user only holds what its groups hold, so list each permission
+    /// with the group it comes through. Read them under `v`. The default lists
+    /// none, and the page shows its empty state.
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::ServiceUserNotFound`] or
+    /// [`ServiceUserAccessError::Store`].
+    async fn service_user_permissions(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserPermissionView>, ServiceUserAccessError> {
+        let _ = (v, service_user);
+        Ok(Vec::new())
+    }
 
     /// Commands that connect a tool to the service user, given what its token can do.
     /// They must refer to the token through an environment variable, never

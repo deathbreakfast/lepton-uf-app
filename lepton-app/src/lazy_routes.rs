@@ -8,7 +8,9 @@ use crate::appearance::AppearancePage;
 use crate::confirm_account::ConfirmAccountPage;
 use crate::delivery_settings::DeliverySettingsPage;
 use crate::profile::ProfilePage;
-use crate::service_users::{CreateServiceUserPage, ServiceUserTokenPage, ServiceUsersPage};
+use crate::service_users::{
+    CreateServiceUserPage, ServiceUserDetailPage, ServiceUserTokenPage, ServiceUsersPage,
+};
 
 /// Prefetch the user settings family WASM chunk (leaf pages share split modules).
 pub async fn prefetch_family() {
@@ -139,6 +141,26 @@ impl LazyRoute for ServiceUserNewRoute {
         view! {
             <uf_product::routes::RequireAuthenticated>
                 <CreateServiceUserPage />
+            </uf_product::routes::RequireAuthenticated>
+        }
+        .into_any()
+    }
+}
+
+/// Lazy `/user/service-users/{service_user_id}` page.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ServiceUserDetailRoute;
+
+#[lazy_route]
+impl LazyRoute for ServiceUserDetailRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! {
+            <uf_product::routes::RequireAuthenticated>
+                <ServiceUserDetailPage />
             </uf_product::routes::RequireAuthenticated>
         }
         .into_any()

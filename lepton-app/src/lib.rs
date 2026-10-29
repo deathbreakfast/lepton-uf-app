@@ -327,6 +327,7 @@
 //! | `/user/confirm-account` | [`ConfirmAccountPage`] | `confirm_account` |
 //! | `/user/service-users` | [`service_users::ServiceUsersPage`] | [`service_users`] |
 //! | `/user/service-users/new` | [`service_users::CreateServiceUserPage`] | [`service_users`] |
+//! | `/user/service-users/{service_user_id}` | [`service_users::ServiceUserDetailPage`] | [`service_users`] |
 //! | `/user/service-users/{service_user_id}/token` | [`service_users::ServiceUserTokenPage`] | [`service_users`] |
 //!
 //! [`UserLayout`] wraps these under the app-bar/left-nav shell; WASM code-split lazy
@@ -377,8 +378,8 @@ pub use devices_section::SecurityDevicesSection;
 pub use layout::UserLayout;
 pub use lazy_routes::{
     prefetch_family, AccountSettingsRoute, AppearanceRoute, ConfirmAccountRoute,
-    DeliverySettingsRoute, ProfileRoute, ServiceUserNewRoute, ServiceUserTokenRoute,
-    ServiceUsersRoute,
+    DeliverySettingsRoute, ProfileRoute, ServiceUserDetailRoute, ServiceUserNewRoute,
+    ServiceUserTokenRoute, ServiceUsersRoute,
 };
 pub use permissions::LeptonPermission;
 pub use profile::{
@@ -426,6 +427,7 @@ pub fn UserAppRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("delivery") view={Lazy::<DeliverySettingsRoute>::new()} />
             <Route path=path!("service-users") view={Lazy::<ServiceUsersRoute>::new()} />
             <Route path=path!("service-users/new") view={Lazy::<ServiceUserNewRoute>::new()} />
+            <Route path=path!("service-users/:service_user_id") view={Lazy::<ServiceUserDetailRoute>::new()} />
             <Route path=path!("service-users/:service_user_id/token") view={Lazy::<ServiceUserTokenRoute>::new()} />
         </ParentRoute>
     }
