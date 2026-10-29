@@ -32,6 +32,7 @@ fn encode_query_value(raw: &str) -> String {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
             out.push(char::from(byte));
         } else {
+            // Writing to a String is infallible.
             let _ = write!(out, "%{byte:02X}");
         }
     }
