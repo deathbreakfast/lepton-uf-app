@@ -101,7 +101,10 @@ pub async fn get_service_users_overview() -> Result<ServiceUsersOverview, Server
             None => false,
         };
         let can_manage_any = match lepton_identity::service_users::installed_service_user_gate() {
-            Some(gate) => gate.may_manage_any_service_user(&v).await.unwrap_or(false),
+            Some(gate) => gate.may_manage_any_service_user(&v).await.unwrap_or_else(|e| {
+                tracing::warn!(target: "lepton_app.service_users", op = "overview", error = %e, "manage-any check failed; hiding setup hint");
+                false
+            }),
             None => false,
         };
         let backend = crate::service_users::port::use_service_user_access_backend();

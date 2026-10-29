@@ -17,6 +17,13 @@ use crate::paths;
 
 const INTRO: &str = "A service user is an account that a tool, such as an MCP client like Claude Code, a CI job, or a webhook consumer, uses to call this site for you, with only the access you give it.";
 
+const NOT_AVAILABLE: &str = "Service users aren't available on this site yet.";
+
+/// One-line setup hint under [`NOT_AVAILABLE`], for people who can manage the site.
+fn setup_hint(can_manage_any: bool) -> Option<&'static str> {
+    can_manage_any.then_some(" No access backend is installed.")
+}
+
 /// `/user/service-users` page.
 ///
 /// Wrap in [`uf_product::routes::RequireAuthenticated`] at the route.
@@ -144,8 +151,8 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
         <Show when=move || !overview.tokens_configured>
             <div data-testid="service-users-not-configured">
                 <MessageBar intent=MessageBarIntent::Warning>
-                    "This site isn't set up to give service users tokens yet. You can still create service users."
-                    {can_manage_any.then_some(" No access backend is installed.")}
+                    {NOT_AVAILABLE}
+                    {setup_hint(can_manage_any)}
                 </MessageBar>
             </div>
         </Show>
@@ -234,5 +241,16 @@ pub fn ServiceUserBadge() -> impl IntoView {
                 "Service user"
             </Badge>
         </span>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_hint_only_for_manage_any() {
+        assert!(setup_hint(true).is_some_and(|h| h.contains("No access backend")));
+        assert_eq!(setup_hint(false), None);
     }
 }
