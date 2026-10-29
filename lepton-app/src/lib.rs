@@ -297,12 +297,13 @@
 //! ## When a service user access choice can't be given
 //!
 //! [`service_users::ServiceUserAccessBackend::can_grant_group`] answers per viewer. When it
-//! says no, the choice stays on the page, switched off, with "Only an owner of Metric readers
-//! or a super user can add service users to it." The server refuses the same choice with
+//! says no, the choice stays on the page, switched off, with "Only owners of Metric readers
+//! can add service users to it. You can request access for @handle instead." (the link comes
+//! from [`service_users::ServiceUserAccessBackend::request_access_url`]). The server refuses the same choice with
 //! `reason_class=not_grantable`, so the page is never the only check.
 //!
 //! ```rust,ignore
-//! let views = lepton_app::service_users::service_user_access_choices().await?;
+//! let views = lepton_app::service_users::service_user_access_choices(service_user_id).await?;
 //! let metrics = views.iter().find(|c| c.key == "metrics-read").expect("offered");
 //! assert_eq!(metrics.grantable, false); // viewer doesn't own Metric readers
 //! ```

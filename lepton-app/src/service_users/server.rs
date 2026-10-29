@@ -100,14 +100,29 @@ pub async fn get_service_users_overview() -> Result<ServiceUsersOverview, Server
             }),
             None => false,
         };
+        let can_manage_any = match lepton_identity::service_users::installed_service_user_gate() {
+            Some(gate) => gate.may_manage_any_service_user(&v).await.unwrap_or_else(|e| {
+                tracing::warn!(target: "lepton_app.service_users", op = "overview", error = %e, "manage-any check failed; hiding setup hint");
+                false
+            }),
+            None => false,
+        };
+        let backend = crate::service_users::port::use_service_user_access_backend();
+        let request_access_url = backend.as_ref().and_then(|b| {
+            b.request_access_url(
+                crate::service_users::port::SERVICE_USER_CREATORS_GROUP,
+                None,
+            )
+        });
         Ok(ServiceUsersOverview {
             service_users: service_users.iter().map(ssr::row).collect(),
             limit: u32::try_from(lepton_auth::service_users::MAX_SERVICE_USERS_PER_OWNER)
                 .unwrap_or(u32::MAX),
             can_create,
-            tokens_configured: crate::service_users::port::use_service_user_access_backend()
-                .is_some(),
+            tokens_configured: backend.is_some(),
             owner_email,
+            request_access_url,
+            can_manage_any,
         })
     }
     #[cfg(not(feature = "ssr"))]
@@ -214,13 +229,21 @@ pub async fn get_service_user_row(
 
 /// The access choices this site offers, and which ones the viewer may give.
 #[uf_product_macros::server]
-pub async fn service_user_access_choices() -> Result<Vec<AccessChoiceView>, ServerFnError> {
+pub async fn service_user_access_choices(
+    /// Service user the choices are for; its handle goes in request links.
+    service_user_id: String,
+) -> Result<Vec<AccessChoiceView>, ServerFnError> {
     #[cfg(feature = "ssr")]
     {
         use crate::service_users::port::AccessKind;
 
         let (v, _) = ssr::session().await?;
         let backend = ssr::backend()?;
+        let id = ssr::parse_id(&service_user_id)?;
+        let service_user = lepton_auth::service_users::get_service_user(&v, &id)
+            .await
+            .map_err(|e| ssr::service_user_err("choices", &e))?;
+        let handle = service_user.handle().clone();
         let mut out = Vec::new();
         for choice in backend.choices() {
             let (grantable, group_name) = match choice.kind {
@@ -236,18 +259,23 @@ pub async fn service_user_access_choices() -> Result<Vec<AccessChoiceView>, Serv
                 ),
                 AccessKind::TokenOnly => (true, None),
             };
+            let request_url = group_name
+                .as_deref()
+                .and_then(|group| backend.request_access_url(group, Some(&handle)));
             out.push(AccessChoiceView {
                 key: choice.key.to_string(),
                 label: choice.label.to_string(),
                 help: choice.help.to_string(),
                 group_name,
                 grantable,
+                request_url,
             });
         }
         Ok(out)
     }
     #[cfg(not(feature = "ssr"))]
     {
+        let _ = service_user_id;
         Err(ServerFnError::new("server only"))
     }
 }

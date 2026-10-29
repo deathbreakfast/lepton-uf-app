@@ -24,6 +24,7 @@ mod detail;
 mod error;
 mod list_page;
 mod port;
+mod request_access;
 mod search;
 mod server;
 mod step_up;
@@ -43,8 +44,9 @@ pub use port::{
     ServiceUserAccessBackend,
 };
 pub use port::{
-    resolve_choices, summarize, token_scopes, AccessKind, ServiceUserAccessChoice,
-    ServiceUserAccessError, ServiceUserGroupView, ServiceUserPermissionView, ServiceUserTokenView,
+    request_access_path, resolve_choices, summarize, token_scopes, AccessKind,
+    ServiceUserAccessChoice, ServiceUserAccessError, ServiceUserGroupView,
+    ServiceUserPermissionView, ServiceUserTokenView, SERVICE_USER_CREATORS_GROUP,
 };
 #[cfg(feature = "ssr")]
 pub use search::ServiceUserSearchSource;

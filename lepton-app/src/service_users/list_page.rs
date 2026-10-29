@@ -10,11 +10,19 @@ use uf_product::components::{
 use uf_product::primitives::*;
 
 use super::error::friendly_error;
+use super::request_access::RequestCreatorAccess;
 use super::server::get_service_users_overview;
 use super::types::{ServiceUserRow, ServiceUserState, ServiceUsersOverview};
 use crate::paths;
 
 const INTRO: &str = "A service user is an account that a tool, such as an MCP client like Claude Code, a CI job, or a webhook consumer, uses to call this site for you, with only the access you give it.";
+
+const NOT_AVAILABLE: &str = "Service users aren't available on this site yet.";
+
+/// One-line setup hint under [`NOT_AVAILABLE`], for people who can manage the site.
+fn setup_hint(can_manage_any: bool) -> Option<&'static str> {
+    can_manage_any.then_some(" No access backend is installed.")
+}
 
 /// `/user/service-users` page.
 ///
@@ -58,11 +66,13 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
     let at_limit = overview.at_limit();
     let can_create = overview.can_create;
     let limit = overview.limit;
+    let can_manage_any = overview.can_manage_any;
     let count = format!(
         "{} of {} service users",
         overview.service_users.len(),
         overview.limit
     );
+    let request_access_url = StoredValue::new(overview.request_access_url.clone());
     let create_disabled = Signal::derive(move || at_limit || !can_create);
 
     if overview.service_users.is_empty() {
@@ -95,8 +105,9 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
                         illustration_src=EMPTYSTATE_LOCK_ILLUSTRATION
                         illustration_alt="Locked"
                         message="You can't create service users yet"
-                        description="Ask a super user to add you to the Service user creators group."
+                        description=""
                     />
+                    <Caption2><RequestCreatorAccess url=request_access_url.get_value() /></Caption2>
                 </div>
             }
             .into_any()
@@ -132,14 +143,16 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
         <Show when=move || !can_create>
             <div data-testid="service-users-cannot-create">
                 <MessageBar intent=MessageBarIntent::Info>
-                    "You can't create more service users. Ask a super user to add you to the Service user creators group."
+                    "You can't create service users yet. "
+                    <RequestCreatorAccess url=request_access_url.get_value() />
                 </MessageBar>
             </div>
         </Show>
         <Show when=move || !overview.tokens_configured>
             <div data-testid="service-users-not-configured">
                 <MessageBar intent=MessageBarIntent::Warning>
-                    "This site isn't set up to give service users tokens yet. You can still create service users."
+                    {NOT_AVAILABLE}
+                    {setup_hint(can_manage_any)}
                 </MessageBar>
             </div>
         </Show>
@@ -228,5 +241,16 @@ pub fn ServiceUserBadge() -> impl IntoView {
                 "Service user"
             </Badge>
         </span>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_hint_only_for_manage_any() {
+        assert!(setup_hint(true).is_some_and(|h| h.contains("No access backend")));
+        assert_eq!(setup_hint(false), None);
     }
 }

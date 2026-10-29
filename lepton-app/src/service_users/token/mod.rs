@@ -26,9 +26,10 @@ pub fn TokenForm(
     preselected: Vec<String>,
     on_minted: Callback<MintedTokenView>,
 ) -> impl IntoView {
-    let choices = Resource::new(|| (), |()| service_user_access_choices());
+    let service_user_id = service_user.id.clone();
+    let choices_id = service_user_id.clone();
+    let choices = Resource::new(move || choices_id.clone(), service_user_access_choices);
     let title = format!("Get a token for @{}", service_user.handle);
-    let service_user_id = service_user.id;
     view! {
         <Card>
             <CardHeader>

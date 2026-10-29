@@ -20,9 +20,9 @@ pub fn friendly_error(raw: &str) -> &'static str {
     match reason_class(raw) {
         "session" | "actor" => "Sign in again to manage service users.",
         "permission" => {
-            "You can't create service users. Ask a super user to add you to the Service user creators group."
+            "You can't create service users yet. Request access to the Service user creators group."
         }
-        "not_configured" => "This site isn't set up for this yet. Ask a super user.",
+        "not_configured" => "Service users aren't available on this site yet.",
         "handle" => "That handle can't be used. Handles use 3 to 32 lowercase letters, numbers or single dashes.",
         "handle_taken" => "Another service user already uses that handle. Pick another.",
         "quota" => "You have the most service users allowed. Delete one to make room.",
@@ -34,7 +34,7 @@ pub fn friendly_error(raw: &str) -> &'static str {
         "label" => "Give the token a label of up to 80 characters.",
         "no_access" => "Pick at least one thing the token can do.",
         "not_grantable" => {
-            "You can't add service users to that group. Ask one of its owners or a super user."
+            "Only owners of that group can add service users to it."
         }
         _ => "Something went wrong. Nothing was changed. Try again.",
     }
@@ -53,7 +53,7 @@ mod tests {
                 "reason_class=permission: not allowed",
                 "Service user creators",
             ),
-            ("reason_class=not_configured", "isn't set up"),
+            ("reason_class=not_configured", "aren't available"),
             (
                 "reason_class=handle: invalid handle (reserved)",
                 "single dashes",

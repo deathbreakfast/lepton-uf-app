@@ -258,6 +258,12 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
         CHOICES
     }
 
+    fn request_access_url(&self, group_name: &str, for_handle: Option<&str>) -> Option<String> {
+        Some(lepton_app::service_users::request_access_path(
+            group_name, for_handle,
+        ))
+    }
+
     async fn can_grant_group(
         &self,
         v: &Valence,

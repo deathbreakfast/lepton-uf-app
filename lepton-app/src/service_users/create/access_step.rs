@@ -2,7 +2,7 @@
 //!
 //! Choices that work through a group add the service user to that group now. Choices
 //! that live on the token carry over to step 3. A choice the viewer can't give
-//! stays visible, switched off, with who to ask.
+//! stays visible, switched off, with a link to request it.
 
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
@@ -12,6 +12,7 @@ use uf_product::primitives::*;
 
 use crate::paths;
 use crate::service_users::error::friendly_error;
+use crate::service_users::request_access::RequestGroupAccess;
 use crate::service_users::server::{grant_service_user_access, service_user_access_choices};
 use crate::service_users::step_up::spawn_with_step_up;
 use crate::service_users::types::{AccessChoiceView, ServiceUserRow};
@@ -48,7 +49,8 @@ pub(super) fn AccessStep(
         .into_any();
     }
 
-    let choices = Resource::new(|| (), |()| service_user_access_choices());
+    let id = service_user.id.clone();
+    let choices = Resource::new(move || id.clone(), service_user_access_choices);
     view! {
         <Card>
             <CardHeader>
@@ -63,7 +65,7 @@ pub(super) fn AccessStep(
                 </CardContent>
             }>
                 {move || choices.get().map(|res| match res {
-                    Ok(list) => view! { <ChoiceForm service_user_id=service_user.id.clone() choices=list on_next=on_next /> }.into_any(),
+                    Ok(list) => view! { <ChoiceForm service_user_id=service_user.id.clone() handle=service_user.handle.clone() choices=list on_next=on_next /> }.into_any(),
                     Err(e) => view! {
                         <CardContent>
                             <div data-testid="service-user-access-error">
@@ -81,9 +83,11 @@ pub(super) fn AccessStep(
 #[component]
 fn ChoiceForm(
     service_user_id: String,
+    handle: String,
     choices: Vec<AccessChoiceView>,
     on_next: Callback<Vec<String>>,
 ) -> impl IntoView {
+    let all_choices = choices.clone();
     let picked: Vec<(AccessChoiceView, RwSignal<bool>)> = choices
         .into_iter()
         .map(|c| (c, RwSignal::new(false)))
@@ -149,11 +153,31 @@ fn ChoiceForm(
             .map(|(c, _)| (c.clone(), c.group_name.clone().unwrap_or_default()))
             .collect::<Vec<_>>()
     });
+    // The server names a refused choice by key; find its group to explain it.
+    let refused = {
+        let handle = handle.clone();
+        move |raw: &str| {
+            let key = raw
+                .split("may not grant ")
+                .nth(1)?
+                .split([':', ' '])
+                .next()?;
+            let c = all_choices.iter().find(|c| c.key == key)?;
+            Some(view! {
+                <RequestGroupAccess
+                    group=c.group_name.clone().unwrap_or_default()
+                    handle=handle.clone()
+                    url=c.request_url.clone()
+                />
+            })
+        }
+    };
     let any_blocked = !blocked.is_empty();
     let blocked_rows = blocked
         .into_iter()
         .map(|(c, group)| {
             let test_id = format!("service-user-access-blocked-{}", c.key);
+            let handle = handle.clone();
             view! {
                 <div data-testid=test_id>
                     <Flex vertical=true gap=FlexGap::Small>
@@ -161,7 +185,7 @@ fn ChoiceForm(
                         <Flex gap=FlexGap::Small align=FlexAlign::Start>
                             <Icon icon=icondata::AiLockOutlined size=IconSize::Size16 />
                             <Caption2>
-                                {format!("Only an owner of {group} or a super user can add service users to it. Ask one of them.")}
+                                <RequestGroupAccess group=group handle=handle url=c.request_url.clone() />
                             </Caption2>
                         </Flex>
                     </Flex>
@@ -177,11 +201,14 @@ fn ChoiceForm(
                 <Show when=move || any_blocked><Divider /></Show>
                 {blocked_rows}
                 {move || error.get().map(|e| {
-                    let (intent, text) = if e.contains("STEP_UP:") {
-                        (MessageBarIntent::Warning, "Access wasn't added. Choose Continue to try again.".to_string())
+                    let body = if e.contains("STEP_UP:") {
+                        (MessageBarIntent::Warning, "Access wasn't added. Choose Continue to try again.".to_string().into_any())
+                    } else if let Some(sentence) = refused(&e) {
+                        (MessageBarIntent::Error, sentence.into_any())
                     } else {
-                        (MessageBarIntent::Error, friendly_error(&e).to_string())
+                        (MessageBarIntent::Error, friendly_error(&e).to_string().into_any())
                     };
+                    let (intent, text) = body;
                     view! {
                         <div data-testid="service-user-access-error">
                             <MessageBar intent=intent>{text}</MessageBar>

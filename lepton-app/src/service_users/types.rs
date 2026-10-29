@@ -74,6 +74,11 @@ pub struct ServiceUsersOverview {
     pub tokens_configured: bool,
     /// The viewer's email, shown as the owner while creating a service user.
     pub owner_email: String,
+    /// Where the viewer can request access to the Service user creators group.
+    /// `None` when the host has no permissions UI.
+    pub request_access_url: Option<String>,
+    /// Whether the viewer may manage every service user on the site.
+    pub can_manage_any: bool,
 }
 
 impl ServiceUsersOverview {
@@ -174,8 +179,11 @@ pub struct AccessChoiceView {
     /// Group the service user joins, when the choice works through a group.
     pub group_name: Option<String>,
     /// Whether this viewer may give the choice. False means only a group owner
-    /// or a super user can.
+    /// can.
     pub grantable: bool,
+    /// Where to request this choice's group for the service user, when the
+    /// host has a permissions UI.
+    pub request_url: Option<String>,
 }
 
 /// A token secret that is shown once.
@@ -319,6 +327,8 @@ mod tests {
             can_create: true,
             tokens_configured: true,
             owner_email: "a@example.test".into(),
+            request_access_url: None,
+            can_manage_any: false,
         };
         assert!(!o.at_limit());
         o.service_users.push(ServiceUserRow {
