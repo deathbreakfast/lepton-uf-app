@@ -32,8 +32,8 @@ mod types;
 
 pub use create::CreateServiceUserPage;
 pub use detail::{
-    get_service_user_detail, pause_service_user, resume_service_user, ServiceUserDetail,
-    ServiceUserDetailPage,
+    delete_service_user, get_service_user_detail, pause_service_user, resume_service_user,
+    revoke_service_user_token, ServiceUserDetail, ServiceUserDetailPage,
 };
 pub use error::friendly_error;
 pub use list_page::{ServiceUserBadge, ServiceUsersPage};
@@ -44,7 +44,7 @@ pub use port::{
 };
 pub use port::{
     resolve_choices, summarize, token_scopes, AccessKind, ServiceUserAccessChoice,
-    ServiceUserAccessError, ServiceUserGroupView, ServiceUserPermissionView,
+    ServiceUserAccessError, ServiceUserGroupView, ServiceUserPermissionView, ServiceUserTokenView,
 };
 #[cfg(feature = "ssr")]
 pub use search::ServiceUserSearchSource;
