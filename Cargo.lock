@@ -49,9 +49,9 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "ammonia"
-version = "4.2.3"
+version = "4.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061e83b03c2681c18a6787d956e355c74e0b98ba7ba3d69b0822ade1e6f1d716"
+checksum = "1f45dfa685e1ec33b1bf1a3b93b8047cbdbef41b6040deebbe6bea7720a45574"
 dependencies = [
  "cssparser 0.38.0",
  "html5ever",
@@ -1509,6 +1509,7 @@ dependencies = [
 [[package]]
 name = "gauge"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/gauge?rev=65189dfd5cc4fa51d11359b95275781aa46cf621#65189dfd5cc4fa51d11359b95275781aa46cf621"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2425,6 +2426,7 @@ dependencies = [
 [[package]]
 name = "lepton"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "lepton-host-adapter",
 ]
@@ -2473,6 +2475,7 @@ dependencies = [
 [[package]]
 name = "lepton-auth"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2561,6 +2564,7 @@ dependencies = [
 [[package]]
 name = "lepton-auth-ui"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "cfg-if",
  "lepton-auth",
@@ -2578,6 +2582,7 @@ dependencies = [
 [[package]]
 name = "lepton-e2e"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2602,6 +2607,7 @@ dependencies = [
 [[package]]
 name = "lepton-host-adapter"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2634,6 +2640,7 @@ dependencies = [
 [[package]]
 name = "lepton-identity"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2678,6 +2685,7 @@ dependencies = [
 [[package]]
 name = "lepton-sms"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2692,6 +2700,7 @@ dependencies = [
 [[package]]
 name = "lepton-smtp"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "async-trait",
  "hickory-resolver",
@@ -2707,6 +2716,7 @@ dependencies = [
 [[package]]
 name = "lepton-test-support"
 version = "0.1.0"
+source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
 dependencies = [
  "axum",
  "chrono",
@@ -4483,9 +4493,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
+checksum = "278e9268c93b9e498a2da46c34d90ba93a3255eb99009646398f34bc73ab36eb"
 dependencies = [
  "bitflags",
  "getopts",
@@ -5887,9 +5897,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -7069,7 +7079,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

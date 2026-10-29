@@ -6,6 +6,9 @@ yanked = "warn"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste unmaintained; transitive via leptos (either_of)" },
     { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; transitive via leptos_macro" },
+    { id = "RUSTSEC-2026-0367", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
+    { id = "RUSTSEC-2026-0368", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
+    { id = "RUSTSEC-2026-0369", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
 ]
 
 [licenses]
@@ -47,6 +50,8 @@ allow-git = [
     "https://github.com/unified-field-dev/boson-valence-identity",
     "https://github.com/unified-field-dev/higgs",
     "https://github.com/unified-field-dev/lepton",
+    "https://github.com/deathbreakfast/lepton",
+    "https://github.com/deathbreakfast/gauge",
     "https://github.com/unified-field-dev/meson",
     "https://github.com/unified-field-dev/orbital",
     "https://github.com/unified-field-dev/photon",
