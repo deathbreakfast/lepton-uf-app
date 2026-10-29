@@ -6,7 +6,7 @@
 //! so by implementing [`ServiceUserAccessBackend`] and providing it per request with
 //! [`provide_service_user_access_backend`].
 
-use std::fmt;
+use std::fmt::{self, Write as _};
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ssr")]
@@ -32,7 +32,7 @@ fn encode_query_value(raw: &str) -> String {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
             out.push(char::from(byte));
         } else {
-            out.push_str(&format!("%{byte:02X}"));
+            let _ = write!(out, "%{byte:02X}");
         }
     }
     out

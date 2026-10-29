@@ -25,7 +25,7 @@ pub fn copy_text_checked(text: &str, done: impl FnOnce(bool) + 'static) {
             return;
         };
         let promise = window.navigator().clipboard().write_text(text);
-        wasm_bindgen_futures::spawn_local(async move {
+        leptos::task::spawn_local_scoped(async move {
             let ok = wasm_bindgen_futures::JsFuture::from(promise).await.is_ok();
             done(ok);
         });
