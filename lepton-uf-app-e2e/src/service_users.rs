@@ -3,10 +3,13 @@
 //! route.
 //!
 //! Lab-only. The token store is a stand-in for a host's real token service:
-//! it hands out random secrets, counts them per service user, and forgets them on
-//! restart. Group grants go through Gauge for real, under the signed-in
+//! it hands out random secrets, lists and revokes them per service user, and forgets them
+//! on restart. Group grants go through Gauge for real, under the signed-in
 //! person's Valence. Gauge can't yet list a service user's groups and permissions, so the
 //! detail page reads a memory copy of what was granted here or seeded by a test.
+//!
+//! Boot also registers a no-op Valence deletion dispatcher, so Delete works: the deleted
+//! service user stays hidden from reads and nothing purges it.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -14,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use lepton_app::service_users::{
     AccessKind, ClientSetupStep, MintedToken, RevealOnce, ServiceUserAccessBackend,
     ServiceUserAccessChoice, ServiceUserAccessError, ServiceUserGroupView,
-    ServiceUserPermissionView, TokenTtl,
+    ServiceUserPermissionView, ServiceUserTokenView, TokenTtl,
 };
 use lepton_auth::service_users::ServiceUserError;
 use lepton_identity::generated::ServiceUserAccountStatus;
@@ -67,10 +70,10 @@ struct LabMembership {
     permissions: Vec<ServiceUserPermissionView>,
 }
 
-/// In-memory token counts and group listings per service user id.
+/// In-memory tokens and group listings per service user id.
 #[derive(Default)]
 pub struct LabTokens {
-    by_service_user: Mutex<HashMap<String, usize>>,
+    by_service_user: Mutex<HashMap<String, Vec<ServiceUserTokenView>>>,
     memberships: Mutex<HashMap<String, LabMembership>>,
 }
 
@@ -140,27 +143,86 @@ impl LabTokens {
         Ok(m.get(service_user).cloned().unwrap_or_default())
     }
 
-    /// Lab seed: pretend `service_user` already has `n` tokens.
-    pub fn set_count(&self, service_user: &str, n: usize) {
+    /// Lab seed: replace `service_user`'s tokens with `n` labelled ones. Even-numbered
+    /// tokens were last used today; the rest never were. Returns their public ids.
+    pub fn seed(&self, service_user: &str, n: usize) -> Vec<String> {
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let expires = (chrono::Utc::now() + chrono::Duration::days(30))
+            .format("%Y-%m-%d")
+            .to_string();
+        let tokens: Vec<ServiceUserTokenView> = (0..n)
+            .map(|i| ServiceUserTokenView {
+                public_id: lab_public_id(),
+                label: format!("Seeded token {i}"),
+                created_on: today.clone(),
+                expires_on: expires.clone(),
+                last_used_on: (i % 2 == 0).then(|| today.clone()),
+            })
+            .collect();
+        let ids = tokens.iter().map(|t| t.public_id.clone()).collect();
         if let Ok(mut m) = self.by_service_user.lock() {
-            m.insert(service_user.to_string(), n);
+            m.insert(service_user.to_string(), tokens);
         }
+        ids
     }
 
-    fn add(&self, service_user: &str) -> Result<(), ServiceUserAccessError> {
-        let mut m = self
-            .by_service_user
+    fn lock(
+        &self,
+    ) -> Result<
+        std::sync::MutexGuard<'_, HashMap<String, Vec<ServiceUserTokenView>>>,
+        ServiceUserAccessError,
+    > {
+        self.by_service_user
             .lock()
             .map_err(|_| ServiceUserAccessError::Store {
                 reason_class: "lab_lock",
-            })?;
-        let n = m.entry(service_user.to_string()).or_insert(0);
-        if *n >= MAX_TOKENS {
+            })
+    }
+
+    fn add(
+        &self,
+        service_user: &str,
+        token: ServiceUserTokenView,
+    ) -> Result<(), ServiceUserAccessError> {
+        let mut m = self.lock()?;
+        let tokens = m.entry(service_user.to_string()).or_default();
+        if tokens.len() >= MAX_TOKENS {
             return Err(ServiceUserAccessError::TooManyTokens { limit: 5 });
         }
-        *n += 1;
+        tokens.push(token);
         Ok(())
     }
+
+    fn list(
+        &self,
+        service_user: &str,
+    ) -> Result<Vec<ServiceUserTokenView>, ServiceUserAccessError> {
+        Ok(self.lock()?.get(service_user).cloned().unwrap_or_default())
+    }
+
+    /// Remove `public_id` from `service_user`'s tokens. A token of another service user
+    /// is refused and kept.
+    fn revoke(&self, service_user: &str, public_id: &str) -> Result<(), ServiceUserAccessError> {
+        let mut m = self.lock()?;
+        if let Some(tokens) = m.get_mut(service_user) {
+            if let Some(pos) = tokens.iter().position(|t| t.public_id == public_id) {
+                tokens.remove(pos);
+                return Ok(());
+            }
+        }
+        if m.values()
+            .any(|tokens| tokens.iter().any(|t| t.public_id == public_id))
+        {
+            return Err(ServiceUserAccessError::Forbidden);
+        }
+        Err(ServiceUserAccessError::TokenNotFound)
+    }
+}
+
+/// Fresh lab token public id.
+fn lab_public_id() -> String {
+    let id = ServiceUserId::new_v4();
+    format!("tok_{}", &id.as_str()[..12])
 }
 
 /// Lab [`ServiceUserAccessBackend`].
@@ -241,11 +303,32 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
         Ok(self.tokens.membership(service_user.as_str())?.permissions)
     }
 
+    async fn list_tokens(
+        &self,
+        _v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserTokenView>, ServiceUserAccessError> {
+        // The caller already loaded the service user under its own Valence.
+        self.tokens.list(service_user.as_str())
+    }
+
+    async fn revoke_token(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        public_id: &str,
+    ) -> Result<(), ServiceUserAccessError> {
+        if !matches!(v.actor(), Actor::User { .. }) {
+            return Err(ServiceUserAccessError::Forbidden);
+        }
+        self.tokens.revoke(service_user.as_str(), public_id)
+    }
+
     async fn mint_token(
         &self,
         v: &Valence,
         service_user: &ServiceUserId,
-        _label: &str,
+        label: &str,
         ttl: TokenTtl,
         _scopes: &[&'static str],
     ) -> Result<MintedToken, ServiceUserAccessError> {
@@ -264,12 +347,24 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
         if row.status() == &ServiceUserAccountStatus::Suspended {
             return Err(ServiceUserAccessError::ServiceUserSuspended);
         }
-        self.tokens.add(service_user.as_str())?;
-        let id = ServiceUserId::new_v4();
+        let now = chrono::Utc::now();
+        let expires_at = now + chrono::Duration::days(i64::from(ttl.days()));
+        let public_id = lab_public_id();
+        self.tokens.add(
+            service_user.as_str(),
+            ServiceUserTokenView {
+                public_id: public_id.clone(),
+                label: label.to_string(),
+                created_on: now.format("%Y-%m-%d").to_string(),
+                expires_on: expires_at.format("%Y-%m-%d").to_string(),
+                last_used_on: None,
+            },
+        )?;
+        let secret = ServiceUserId::new_v4();
         Ok(MintedToken {
-            public_id: format!("tok_{}", &id.as_str()[..12]),
-            secret: RevealOnce::new(format!("labtk_{}", id.as_str().replace('-', ""))),
-            expires_at: chrono::Utc::now() + chrono::Duration::days(i64::from(ttl.days())),
+            public_id,
+            secret: RevealOnce::new(format!("labtk_{}", secret.as_str().replace('-', ""))),
+            expires_at,
         })
     }
 
@@ -309,6 +404,9 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
 pub async fn boot_service_users(system: &Valence) -> anyhow::Result<()> {
     use gauge::manifest_sync::{PermissionDomainInput, PermissionInput, PermissionManifestInput};
 
+    // Lab only: Delete needs a dispatcher. Nothing purges deleted rows here; Lepton keeps
+    // them hidden from reads.
+    valence::deletion::register_noop_deletion_dispatcher_for_tests();
     gauge::super_user::ensure_super_user_group(system).await?;
     let _stats = gauge::service_users::seed_service_user_permissions(system).await?;
     // A host process installs the gate once; the lab only boots once too.
@@ -378,7 +476,7 @@ pub enum ServiceUserLabRequest {
         #[serde(default)]
         suspend: bool,
     },
-    /// Pretend the service user already has `count` tokens.
+    /// Replace the service user's tokens with `count` seeded ones.
     SeedTokens {
         service_user_id: String,
         count: usize,
@@ -389,6 +487,8 @@ pub enum ServiceUserLabRequest {
         groups: usize,
         permissions: usize,
     },
+    /// Public ids of the service user's tokens.
+    Tokens { service_user_id: String },
     /// Whether the service user is `active` or `suspended`.
     Status { service_user_id: String },
     /// Whether the service user is in the lab Spectra readers group.
@@ -478,8 +578,17 @@ pub async fn service_user_lab(
             service_user_id,
             count,
         } => {
-            tokens.set_count(&service_user_id, count);
-            serde_json::json!({ "ok": true })
+            let ids = tokens.seed(&service_user_id, count);
+            serde_json::json!({ "ok": true, "tokens": ids })
+        }
+        ServiceUserLabRequest::Tokens { service_user_id } => {
+            let ids: Vec<String> = tokens
+                .list(&service_user_id)
+                .map_err(|e| fail(anyhow::anyhow!("{e}")))?
+                .into_iter()
+                .map(|t| t.public_id)
+                .collect();
+            serde_json::json!({ "tokens": ids })
         }
         ServiceUserLabRequest::SeedMemberships {
             service_user_id,

@@ -1,5 +1,6 @@
 /**
- * Service users pages (`/user/service-users`, `/user/service-users/new`, `/user/service-users/:id/token`).
+ * Service users pages (`/user/service-users`, `/user/service-users/new`, `/user/service-users/:id`,
+ * `/user/service-users/:id/token`).
  *
  * The lab host installs Gauge's service user gate, a "Spectra readers" group with no
  * owners, and an in-memory token store. `/api/test/service-users` stands in for a super
@@ -636,5 +637,209 @@ test.describe("pw-su-detail", () => {
     expect(
       (await serviceUserLab(request, { action: "status", service_user_id: theirs.id })).state,
     ).toBe("active");
+  });
+});
+
+const LOOKS = ["desktop-light", "phone", "desktop-dark"] as const;
+
+/** Open the Delete dialog on the detail page. */
+async function openDeleteDialog(page: Page) {
+  await page.getByTestId("service-user-detail-delete").getByRole("button").click();
+  await expect(page.getByTestId("service-user-delete-confirm")).toContainText(
+    "can't be brought back",
+  );
+}
+
+/** Seed `count` tokens on a service user; returns their public ids, oldest label first. */
+async function seedTokens(request: Request, serviceUserId: string, count: number) {
+  const out = await serviceUserLab(request, {
+    action: "seed_tokens",
+    service_user_id: serviceUserId,
+    count,
+  });
+  return out.tokens as string[];
+}
+
+/** Public ids of the tokens the lab still holds for a service user. */
+async function labTokens(request: Request, serviceUserId: string) {
+  const out = await serviceUserLab(request, { action: "tokens", service_user_id: serviceUserId });
+  return out.tokens as string[];
+}
+
+test.describe("pw-su-delete-tokens", () => {
+  test("pw-su-delete-confirm-happy", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "delete");
+    const seeded = await seedServiceUsers(request, email, `del${Date.now()}`, LOOKS.length);
+
+    await inEachLook(page, async (look) => {
+      const serviceUser = seeded[LOOKS.indexOf(look)];
+      await openDetail(page, serviceUser.id);
+      await openDeleteDialog(page);
+      const submit = page.getByTestId("service-user-delete-submit").getByRole("button");
+      await expect(submit).toBeDisabled();
+      await page
+        .getByTestId("service-user-delete-handle")
+        .locator("input")
+        .fill(`@${serviceUser.handle}`);
+      await expect(submit).toBeEnabled();
+      await expect(page.getByTestId("service-user-delete-mismatch")).toHaveCount(0);
+      await expectNoA11yViolations(page, `delete confirm (${look})`);
+      await submit.click();
+
+      await expect(
+        page.getByRole("status").filter({ hasText: `@${serviceUser.handle} deleted` }),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(page).toHaveURL(/\/user\/service-users$/, { timeout: 30_000 });
+      await expect(
+        page.getByTestId("service-users-count").or(page.getByTestId("service-users-empty")),
+      ).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByTestId(`service-user-card-${serviceUser.handle}`)).toHaveCount(0);
+      await expectCleanLook(page, `service users after delete (${look})`);
+
+      await openDetail(page, serviceUser.id);
+      await expect(page.getByTestId("service-user-detail-not-found")).toContainText(
+        "Service user not found",
+      );
+    });
+  });
+
+  test("pw-su-delete-wrong-name-sad", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "delwrong");
+    const [serviceUser, mine] = await seedServiceUsers(
+      request,
+      email,
+      `delwrong${Date.now()}`,
+      2,
+    );
+    const wrong = `${serviceUser.handle}x`;
+
+    await inEachLook(page, async (look) => {
+      await openDetail(page, serviceUser.id);
+      await openDeleteDialog(page);
+      await page.getByTestId("service-user-delete-handle").locator("input").fill(wrong);
+      await expect(page.getByTestId("service-user-delete-mismatch")).toContainText(
+        `doesn't match @${serviceUser.handle}`,
+      );
+      await expect(
+        page.getByTestId("service-user-delete-submit").getByRole("button"),
+      ).toBeDisabled();
+      await expectNoA11yViolations(page, `delete wrong handle (${look})`);
+      await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+      await expect(page.getByTestId("service-user-detail-state")).toHaveText("Active");
+    });
+
+    // The server checks the handle too: learn the delete call from deleting another
+    // service user, then send it for this one with the wrong handle.
+    await openDetail(page, mine.id);
+    await openDeleteDialog(page);
+    await page.getByTestId("service-user-delete-handle").locator("input").fill(mine.handle);
+    const deleteCall = page.waitForRequest(
+      (r) => r.method() === "POST" && (r.postData() ?? "").includes(mine.id),
+    );
+    await page.getByTestId("service-user-delete-submit").getByRole("button").click();
+    const call = await deleteCall;
+    await expect(page).toHaveURL(/\/user\/service-users$/, { timeout: 30_000 });
+    const refused = await page.request.post(call.url(), {
+      headers: {
+        "content-type": call.headers()["content-type"] ?? "application/x-www-form-urlencoded",
+      },
+      data: (call.postData() ?? "").replace(mine.id, serviceUser.id).replace(mine.handle, wrong),
+    });
+    expect(await refused.text()).toContain("reason_class=confirm");
+    expect(
+      (await serviceUserLab(request, { action: "status", service_user_id: serviceUser.id }))
+        .state,
+    ).toBe("active");
+  });
+
+  test("pw-su-token-revoke-happy", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "revoke");
+    const [serviceUser] = await seedServiceUsers(request, email, `revoke${Date.now()}`, 1);
+
+    await inEachLook(page, async (look) => {
+      const [used, unused] = await seedTokens(request, serviceUser.id, 2);
+      await openDetail(page, serviceUser.id);
+      const card = page.getByTestId("service-user-detail-tokens");
+      await expect(card).toContainText("Tokens (2)");
+      await expect(card.getByTestId("service-user-detail-token-row")).toHaveCount(2);
+      const usedRow = card.locator(`[data-token-id="${used}"]`);
+      const unusedRow = card.locator(`[data-token-id="${unused}"]`);
+      await expect(usedRow).toContainText("Seeded token 0");
+      await expect(usedRow).toContainText("Last used");
+      await expect(unusedRow).toContainText("Never used");
+      await expectCleanLook(page, `service user tokens (${look})`);
+
+      await usedRow.getByTestId("service-user-detail-token-revoke").getByRole("button").click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByTestId("service-user-token-revoke-confirm")).toContainText(
+        "stops working",
+      );
+      await expectNoA11yViolations(page, `revoke confirm (${look})`);
+      await dialog.getByTestId("service-user-token-revoke-submit").getByRole("button").click();
+
+      await expect(
+        page.getByRole("status").filter({ hasText: "Token “Seeded token 0” revoked" }),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(card).toContainText("Tokens (1)", { timeout: 30_000 });
+      await expect(usedRow).toHaveCount(0);
+      await expect(unusedRow).toBeVisible();
+      expect(await labTokens(request, serviceUser.id)).toEqual([unused]);
+    });
+  });
+
+  test("pw-su-token-revoke-forbidden-sad", async ({ page, request, auth }) => {
+    const other = uniqueEmail("revokeowner");
+    // Seed the other owner without signing in as them.
+    await request.post("/api/test/seed-data", {
+      data: { scenario: "auth_basic_user", email: other, password: PASSWORD },
+    });
+    await serviceUserLab(request, { action: "join_creators", email: other });
+    const [theirs] = await seedServiceUsers(request, other, `theirtok${Date.now()}`, 1);
+    const [theirToken] = await seedTokens(request, theirs.id, 1);
+
+    const me = await asCreator(page, request, auth, "revokeintruder");
+    await inEachLook(page, async (look) => {
+      await openDetail(page, theirs.id);
+      await expect(page.getByTestId("service-user-detail-not-found")).toContainText(
+        "isn't yours to see",
+      );
+      await expect(page.getByTestId("service-user-detail-tokens")).toHaveCount(0);
+      await expect(page.getByTestId("service-user-detail-token-revoke")).toHaveCount(0);
+      await expectCleanLook(page, `someone else's tokens (${look})`);
+    });
+
+    // Learn the revoke call from revoking a token of our own, then aim it at theirs.
+    const [mine] = await seedServiceUsers(request, me, `mytok${Date.now()}`, 1);
+    const [myToken] = await seedTokens(request, mine.id, 1);
+    await openDetail(page, mine.id);
+    await page.getByTestId("service-user-detail-token-revoke").getByRole("button").click();
+    const revokeCall = page.waitForRequest(
+      (r) => r.method() === "POST" && (r.postData() ?? "").includes(myToken),
+    );
+    await page
+      .getByRole("dialog")
+      .getByTestId("service-user-token-revoke-submit")
+      .getByRole("button")
+      .click();
+    const call = await revokeCall;
+    await expect(page.getByTestId("service-user-detail-tokens")).toContainText("Tokens (0)", {
+      timeout: 30_000,
+    });
+    const replay = (data: string) =>
+      page.request.post(call.url(), {
+        headers: {
+          "content-type": call.headers()["content-type"] ?? "application/x-www-form-urlencoded",
+        },
+        data,
+      });
+    const body = call.postData() ?? "";
+
+    // Their service user: hidden, so not found.
+    const hidden = await replay(body.replace(mine.id, theirs.id).replace(myToken, theirToken));
+    expect(await hidden.text()).toContain("reason_class=not_found");
+    // Our service user with their token: refused.
+    const crossed = await replay(body.replace(myToken, theirToken));
+    expect(await crossed.text()).toContain("reason_class=forbidden");
+    expect(await labTokens(request, theirs.id)).toEqual([theirToken]);
   });
 });

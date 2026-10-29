@@ -77,6 +77,21 @@ pub struct ServiceUserPermissionView {
     pub via_group: String,
 }
 
+/// One of a service user's tokens, as its detail page lists it. Never carries the secret.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceUserTokenView {
+    /// Public token id, safe to show and log.
+    pub public_id: String,
+    /// Where the token is used, for example "Claude Code on laptop".
+    pub label: String,
+    /// Day it was minted, `YYYY-MM-DD`.
+    pub created_on: String,
+    /// Day it stops working, `YYYY-MM-DD`.
+    pub expires_on: String,
+    /// Day it was last used, `YYYY-MM-DD`, or `None` when it never was.
+    pub last_used_on: Option<String>,
+}
+
 /// Why the host could not give access or a token.
 ///
 /// `Display` starts with `reason_class=<class>` so the pages can explain it
@@ -108,6 +123,8 @@ pub enum ServiceUserAccessError {
         /// Key of the refused choice.
         choice: &'static str,
     },
+    /// The token doesn't exist, or it was already revoked.
+    TokenNotFound,
     /// Storage or lookup failure; `reason_class` names the cause.
     Store {
         /// Safe, low-cardinality cause.
@@ -129,6 +146,7 @@ impl ServiceUserAccessError {
             Self::NoAccessChosen => "no_access",
             Self::UnknownChoice => "unknown_choice",
             Self::NotGrantable { .. } => "not_grantable",
+            Self::TokenNotFound => "token_not_found",
             Self::Store { .. } => "store",
         }
     }
@@ -255,6 +273,43 @@ pub trait ServiceUserAccessBackend: Send + Sync {
     ) -> Result<Vec<ServiceUserPermissionView>, ServiceUserAccessError> {
         let _ = (v, service_user);
         Ok(Vec::new())
+    }
+
+    /// Tokens `service_user` has that still work, for its detail page.
+    ///
+    /// Read them under `v`. The default lists none, and the page shows its
+    /// empty state.
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::ServiceUserNotFound`] or
+    /// [`ServiceUserAccessError::Store`].
+    async fn list_tokens(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<ServiceUserTokenView>, ServiceUserAccessError> {
+        let _ = (v, service_user);
+        Ok(Vec::new())
+    }
+
+    /// Revoke the token `public_id` of `service_user`, so it stops working now.
+    ///
+    /// The default refuses with [`ServiceUserAccessError::NotConfigured`].
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::Forbidden`] when the token belongs to another
+    /// service user, [`ServiceUserAccessError::TokenNotFound`] when it doesn't
+    /// exist, [`ServiceUserAccessError::Store`] otherwise.
+    async fn revoke_token(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        public_id: &str,
+    ) -> Result<(), ServiceUserAccessError> {
+        let _ = (v, service_user, public_id);
+        Err(ServiceUserAccessError::NotConfigured)
     }
 
     /// Commands that connect a tool to the service user, given what its token can do.
@@ -421,6 +476,14 @@ mod tests {
             }
             .to_string(),
             "reason_class=store: token_store"
+        );
+        assert_eq!(
+            ServiceUserAccessError::TokenNotFound.to_string(),
+            "reason_class=token_not_found"
+        );
+        assert_eq!(
+            ServiceUserAccessError::Forbidden.to_string(),
+            "reason_class=forbidden"
         );
     }
 }
