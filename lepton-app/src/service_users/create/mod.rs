@@ -14,6 +14,7 @@ use uf_product::components::{
 use uf_product::primitives::*;
 
 use super::error::friendly_error;
+use super::request_access::RequestCreatorAccess;
 use super::server::get_service_users_overview;
 use super::token::{TokenForm, TokenReveal};
 use super::types::{MintedTokenView, ServiceUserRow, ServiceUsersOverview};
@@ -94,8 +95,9 @@ fn Gate(overview: ServiceUsersOverview) -> impl IntoView {
                     illustration_src=EMPTYSTATE_LOCK_ILLUSTRATION
                     illustration_alt="Locked"
                     message="You can't create service users yet"
-                    description="Ask a super user to add you to the Service user creators group."
+                    description=""
                 />
+                <Caption2><RequestCreatorAccess url=overview.request_access_url.clone() /></Caption2>
             </div>
         }
         .into_any();

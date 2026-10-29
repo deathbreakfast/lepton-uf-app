@@ -96,7 +96,11 @@ test.describe("pw-lepton-service-users", () => {
     await openServiceUsers(page);
     const gate = page.getByTestId("service-users-no-permission");
     await expect(gate).toContainText("You can't create service users yet");
-    await expect(gate).toContainText("Service user creators");
+    await expect(gate).toContainText("Request access to the Service user creators group");
+    await expect(gate.getByRole("link", { name: "Request access" })).toHaveAttribute(
+      "href",
+      "/permission/groups?name=Service%20user%20creators&request=1",
+    );
     await expect(page.getByRole("button", { name: "Create service user" })).toHaveCount(0);
     // Going straight to the create page shows the same explanation, not a form.
     await openServiceUsers(page, "/user/service-users/new");
@@ -271,12 +275,18 @@ test.describe("pw-lepton-service-users", () => {
   test("pw-lepton-service-users-access-not-grantable-sad", async ({ page, request, auth }) => {
     await asCreator(page, request, auth, "blocked");
     await openServiceUsers(page, "/user/service-users/new");
-    await fillProfile(page, "Blocked", `blocked-${Date.now()}`);
+    const blockedHandle = `blocked-${Date.now()}`;
+    await fillProfile(page, "Blocked", blockedHandle);
     await page.getByTestId("service-user-create-submit").getByRole("button").click();
     const blocked = page.getByTestId("service-user-access-blocked-spectra-read");
     await expect(blocked).toBeVisible({ timeout: 30_000 });
     await expect(blocked.getByRole("checkbox")).toBeDisabled();
-    await expect(blocked).toContainText("Only an owner of Spectra readers or a super user");
+    await expect(blocked).toContainText("Only owners of Spectra readers can add service users to it");
+    await expect(blocked).toContainText(`You can request access for @${blockedHandle} instead`);
+    await expect(blocked.getByRole("link", { name: "request access" })).toHaveAttribute(
+      "href",
+      new RegExp(`&request=1&for=${blockedHandle}$`),
+    );
     await expect(page.getByTestId("service-user-access-spectra-read")).toHaveCount(0);
     // Token-only access still works for this person.
     await expect(

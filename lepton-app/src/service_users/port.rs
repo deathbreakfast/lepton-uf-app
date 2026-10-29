@@ -22,11 +22,45 @@ use valence::Valence;
 #[cfg(feature = "ssr")]
 use super::types::{ClientSetupStep, RevealOnce, TokenTtl};
 
+/// Name of the Gauge group whose members may create service users.
+pub const SERVICE_USER_CREATORS_GROUP: &str = "Service user creators";
+
+/// Percent-encode `raw` for a query value: unreserved characters stay, the rest become `%XX`.
+fn encode_query_value(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for byte in raw.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(char::from(byte));
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+/// The Gauge app's request-access form for `group_name`, as a path.
+///
+/// With `for_handle` the request is for that service user. Hosts that have the
+/// permissions UI return this from
+/// [`ServiceUserAccessBackend::request_access_url`].
+#[must_use]
+pub fn request_access_path(group_name: &str, for_handle: Option<&str>) -> String {
+    let mut path = format!(
+        "/permission/groups?name={}&request=1",
+        encode_query_value(group_name)
+    );
+    if let Some(handle) = for_handle {
+        path.push_str("&for=");
+        path.push_str(&encode_query_value(handle));
+    }
+    path
+}
+
 /// How a choice gives the service user access.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccessKind {
     /// The service user joins a Gauge group and holds what the group holds. Only an owner
-    /// of the group or a super user can add it.
+    /// of the group can add it.
     GroupMembership {
         /// Gauge group id, for example `spectra_readers`.
         group_id: &'static str,
@@ -312,6 +346,18 @@ pub trait ServiceUserAccessBackend: Send + Sync {
         Err(ServiceUserAccessError::NotConfigured)
     }
 
+    /// Where the signed-in person can request access to `group_name`, or on
+    /// behalf of the service user `for_handle`.
+    ///
+    /// Gauge routes the request to the group's owners. The default is `None`,
+    /// for a host without a permissions UI, and the pages then show the
+    /// sentence without a link. A host with one returns
+    /// [`request_access_path`].
+    fn request_access_url(&self, group_name: &str, for_handle: Option<&str>) -> Option<String> {
+        let _ = (group_name, for_handle);
+        None
+    }
+
     /// Commands that connect a tool to the service user, given what its token can do.
     /// They must refer to the token through an environment variable, never
     /// include the secret.
@@ -458,6 +504,59 @@ mod tests {
             summarize(CHOICES),
             "read Spectra metrics and events, read Magnon projects and tasks, and change Magnon projects and tasks"
         );
+    }
+
+    #[test]
+    fn request_access_path_encodes_group_and_handle() {
+        assert_eq!(
+            request_access_path(SERVICE_USER_CREATORS_GROUP, None),
+            "/permission/groups?name=Service%20user%20creators&request=1"
+        );
+        assert_eq!(
+            request_access_path("Metrics & logs", Some("ci-bot")),
+            "/permission/groups?name=Metrics%20%26%20logs&request=1&for=ci-bot"
+        );
+    }
+
+    #[test]
+    fn request_access_url_defaults_to_none() {
+        struct NoUi;
+        #[async_trait::async_trait]
+        impl ServiceUserAccessBackend for NoUi {
+            fn choices(&self) -> &'static [ServiceUserAccessChoice] {
+                CHOICES
+            }
+            async fn can_grant_group(
+                &self,
+                _: &Valence,
+                _: &str,
+            ) -> Result<bool, ServiceUserAccessError> {
+                Ok(false)
+            }
+            async fn grant_group(
+                &self,
+                _: &Valence,
+                _: &ServiceUserId,
+                _: &'static str,
+                _: &'static str,
+            ) -> Result<(), ServiceUserAccessError> {
+                Ok(())
+            }
+            async fn mint_token(
+                &self,
+                _: &Valence,
+                _: &ServiceUserId,
+                _: &str,
+                _: TokenTtl,
+                _: &[&'static str],
+            ) -> Result<MintedToken, ServiceUserAccessError> {
+                Err(ServiceUserAccessError::NotConfigured)
+            }
+            fn client_setup(&self, _: &str, _: &[ServiceUserAccessChoice]) -> Vec<ClientSetupStep> {
+                Vec::new()
+            }
+        }
+        assert_eq!(NoUi.request_access_url("Any", Some("x")), None);
     }
 
     #[test]

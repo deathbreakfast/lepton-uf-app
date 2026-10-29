@@ -954,7 +954,7 @@ mod tests {
     fn revoke_error_explains_a_missing_token() {
         assert!(revoke_error("reason_class=token_not_found").contains("already gone"));
         assert!(revoke_error("reason_class=forbidden").contains("can't change"));
-        assert!(revoke_error("reason_class=not_configured").contains("isn't set up"));
+        assert!(revoke_error("reason_class=not_configured").contains("aren't available"));
     }
 
     #[test]
