@@ -10,36 +10,49 @@ use leptos_router::hooks::use_navigate;
 use uf_product::components::{Body1, Body1Strong, Subtitle2};
 use uf_product::primitives::*;
 
-use crate::clipboard::copy_text;
+use crate::clipboard::copy_text_checked;
 use crate::paths;
 use crate::service_users::types::MintedTokenView;
 
 /// How long a copy button says "Copied".
 const COPIED_MS: u64 = 2000;
 
-/// A copy button that says "Copied" for a moment after a click.
+/// A copy button that says "Copied" for a moment after a click, or shows a message when the
+/// browser refuses the copy.
 #[component]
 fn CopyButton(text: String, label: &'static str, test_id: &'static str) -> impl IntoView {
     let copied = RwSignal::new(false);
+    let failed = RwSignal::new(false);
     view! {
         <div data-testid=test_id aria-live="polite">
+            <Flex vertical=true gap=FlexGap::Small align=FlexAlign::End>
             <Button
                 appearance=ButtonAppearance::Secondary
                 icon=icondata::AiCopyOutlined
                 on_click=Callback::new(move |_| {
-                    copy_text(&text);
-                    copied.set(true);
-                    set_timeout(
-                        move || {
-                            // The reveal may be gone by now (Done was pressed).
-                            let _ = copied.try_set(false);
-                        },
-                        std::time::Duration::from_millis(COPIED_MS),
-                    );
+                    copy_text_checked(&text, move |ok| {
+                        // The reveal may be gone by now (Done was pressed).
+                        let _ = failed.try_set(!ok);
+                        let _ = copied.try_set(ok);
+                        set_timeout(
+                            move || {
+                                let _ = copied.try_set(false);
+                            },
+                            std::time::Duration::from_millis(COPIED_MS),
+                        );
+                    });
                 })
             >
                 {move || if copied.get() { "Copied" } else { label }}
             </Button>
+            <Show when=move || failed.get()>
+                <div data-testid=format!("{test_id}-failed")>
+                    <MessageBar intent=MessageBarIntent::Error>
+                        "Couldn't copy. Select the text above and copy it by hand."
+                    </MessageBar>
+                </div>
+            </Show>
+            </Flex>
         </div>
     }
 }
@@ -71,6 +84,7 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
         }
     });
 
+    let has_setup = !token.setup.is_empty();
     let setup = token
         .setup
         .into_iter()
@@ -102,8 +116,10 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
                                 <CopyButton text=secret label="Copy token" test_id="service-user-token-copy" />
                             </Flex>
                         </Flex>
-                        <Divider />
-                        <Subtitle2>"Add it to Claude Code"</Subtitle2>
+                        {has_setup.then(|| view! {
+                            <Divider />
+                            <Subtitle2>"Add it to Claude Code"</Subtitle2>
+                        })}
                         {setup}
                         <div data-testid="service-user-token-summary"><Body1Strong>{summary}</Body1Strong></div>
                     </Flex>

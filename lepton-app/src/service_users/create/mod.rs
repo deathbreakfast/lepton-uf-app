@@ -104,9 +104,9 @@ fn Gate(overview: ServiceUsersOverview) -> impl IntoView {
         return view! {
             <div data-testid="service-users-at-limit">
                 <EmptyState
-                    icon=icondata::AiRobotOutlined
+                    icon=icondata::AiUserOutlined
                     message="You have the most service users allowed"
-                    description="Each person can have 10 service users. Delete one to make room."
+                    description="Delete one to make room."
                 >
                     <EmptyStateCallToAction slot:call_to_action>
                         <Button

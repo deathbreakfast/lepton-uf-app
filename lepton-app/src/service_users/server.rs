@@ -94,7 +94,10 @@ pub async fn get_service_users_overview() -> Result<ServiceUsersOverview, Server
             .await
             .map_err(|e| ssr::service_user_err("overview", &e))?;
         let can_create = match lepton_identity::service_users::installed_service_user_gate() {
-            Some(gate) => gate.may_create_service_user(&v).await.unwrap_or(false),
+            Some(gate) => gate.may_create_service_user(&v).await.unwrap_or_else(|e| {
+                tracing::warn!(target: "lepton_app.service_users", op = "overview", error = %e, "create permission check failed; hiding Create");
+                false
+            }),
             None => false,
         };
         Ok(ServiceUsersOverview {

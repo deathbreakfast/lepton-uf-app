@@ -99,7 +99,14 @@ fn ChoiceForm(
                 .collect::<Vec<_>>()
         })
     };
+    let pending = RwSignal::new(false);
     let nothing_selected = Signal::derive(move || selected().is_empty());
+    // Any failure, or a closed step-up dialog, sets `error`; that ends the wait.
+    Effect::new(move |_| {
+        if error.get().is_some() {
+            pending.set(false);
+        }
+    });
 
     let next = move |_| {
         let chosen = selected();
@@ -109,6 +116,7 @@ fn ChoiceForm(
             return;
         }
         error.set(None);
+        pending.set(true);
         let service_user_id = service_user_id.clone();
         let keys_for_next = keys.clone();
         spawn_with_step_up(
@@ -187,6 +195,7 @@ fn ChoiceForm(
                 <div data-testid="service-user-access-skip">
                     <Button
                         appearance=ButtonAppearance::Secondary
+                        disabled=pending
                         on_click=Callback::new(move |_| on_next.run(Vec::new()))
                     >
                         "Skip for now"
@@ -196,6 +205,7 @@ fn ChoiceForm(
                     <Button
                         appearance=ButtonAppearance::Primary
                         disabled=nothing_selected
+                        loading=pending
                         on_click=Callback::new(next)
                     >
                         "Continue"

@@ -82,6 +82,10 @@ Env for OAuth / public URLs follows lepton (`UF_PUBLIC_BASE_URL`, `UF_OAUTH_*`, 
 
 `AppBarUserMenu` mounts `StepUpDialog` so hosts that call `StepUpController::request` get a working dialog. Account Settings uses session auth today.
 
+## Service users (`/user/service-users`)
+
+`lepton-app` lists the signed-in person's service users, with create (profile, access, token), a detail page (groups, permissions, Pause and Resume, Delete) and one-time token reveal and revoke. The host provides a `ServiceUserAccessBackend` for access choices and tokens; without one the pages still list and create service users and say tokens aren't set up. Each person can own a limited number of service users, and the pages show that limit.
+
 ## Examples
 
 - [`lepton-mount-host`](examples/lepton-mount-host/) — path/auth/inventory contract smoke (Axum oneshot; does not compile or mount lepton UI crates)
