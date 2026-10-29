@@ -57,6 +57,7 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
     let navigate = use_navigate();
     let at_limit = overview.at_limit();
     let can_create = overview.can_create;
+    let limit = overview.limit;
     let count = format!(
         "{} of {} service users",
         overview.service_users.len(),
@@ -70,7 +71,7 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
             view! {
                 <div data-testid="service-users-empty">
                     <EmptyState
-                        icon=icondata::AiRobotOutlined
+                        icon=icondata::AiUserOutlined
                         message="No service users yet"
                         description=INTRO
                     >
@@ -125,7 +126,7 @@ fn Overview(overview: ServiceUsersOverview) -> impl IntoView {
         </Flex>
         <Show when=move || can_create && at_limit>
             <div data-testid="service-users-at-limit">
-                <Caption2>"You have the most service users allowed. Delete one to make room."</Caption2>
+                <Caption2>{format!("You have {limit} service users, the most allowed. Delete one to make room.")}</Caption2>
             </div>
         </Show>
         <Show when=move || !can_create>

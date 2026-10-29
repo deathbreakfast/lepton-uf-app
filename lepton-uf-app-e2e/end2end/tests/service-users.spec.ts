@@ -176,6 +176,18 @@ test.describe("pw-lepton-service-users", () => {
     await page.getByTestId("service-user-create-submit").getByRole("button").click();
     const first = await tokenOnlyToReveal(page, codes);
 
+    // A refused clipboard write shows a message, not "Copied".
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: () => Promise.reject(new Error("denied")) },
+        configurable: true,
+      });
+    });
+    await page.getByTestId("service-user-token-copy").getByRole("button").click();
+    await expect(page.getByTestId("service-user-token-copy-failed")).toContainText("Couldn't copy");
+    await expect(page.getByTestId("service-user-token-copy")).not.toContainText("Copied");
+    await expectNoA11yViolations(page, "token reveal copy failure");
+
     await page.getByTestId("service-user-token-done").getByRole("button").click();
     await expect(page.getByTestId("service-users-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId(`service-user-card-${handle}`)).toContainText("Active");
@@ -261,7 +273,7 @@ test.describe("pw-lepton-service-users", () => {
     await openServiceUsers(page);
     await expect(page.getByTestId("service-users-count")).toContainText("10 of 10 service users");
     await expect(page.getByTestId("service-users-create").getByRole("button")).toBeDisabled();
-    await expect(page.getByTestId("service-users-at-limit")).toContainText("most service users allowed");
+    await expect(page.getByTestId("service-users-at-limit")).toContainText("You have 10 service users");
     await openServiceUsers(page, "/user/service-users/new");
     await expect(page.getByTestId("service-users-at-limit")).toContainText("Delete one to make room");
     await expect(page.getByTestId("service-user-display-name")).toHaveCount(0);

@@ -13,3 +13,26 @@ pub fn copy_text(text: &str) {
         let _ = text;
     }
 }
+
+/// Write `text` to the clipboard and call `done(true)` once the browser accepts it, or
+/// `done(false)` when it refuses (no permission, no secure context). On the server it
+/// calls `done(false)`.
+pub fn copy_text_checked(text: &str, done: impl FnOnce(bool) + 'static) {
+    #[cfg(feature = "hydrate")]
+    {
+        let Some(window) = web_sys::window() else {
+            done(false);
+            return;
+        };
+        let promise = window.navigator().clipboard().write_text(text);
+        wasm_bindgen_futures::spawn_local(async move {
+            let ok = wasm_bindgen_futures::JsFuture::from(promise).await.is_ok();
+            done(ok);
+        });
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        let _ = text;
+        done(false);
+    }
+}
