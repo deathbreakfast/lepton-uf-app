@@ -50,6 +50,8 @@ allow-git = [
     "https://github.com/unified-field-dev/boson-valence-identity",
     "https://github.com/unified-field-dev/higgs",
     "https://github.com/unified-field-dev/lepton",
+    "https://github.com/deathbreakfast/lepton",
+    "https://github.com/deathbreakfast/gauge",
     "https://github.com/unified-field-dev/meson",
     "https://github.com/unified-field-dev/orbital",
     "https://github.com/unified-field-dev/photon",
