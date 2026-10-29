@@ -420,3 +420,221 @@ async function serviceUserIdFromList(page: Page, handle: string): Promise<string
   const match = /\/user\/service-users\/([0-9a-f-]+)\/token/.exec(page.url());
   return match ? match[1] : "";
 }
+
+const DESKTOP = { width: 1280, height: 720 };
+const PHONE = { width: 390, height: 844 };
+type Look = "desktop-light" | "phone" | "desktop-dark";
+
+/** Run `check` on a desktop in light mode, on a phone, then on a desktop in dark mode. */
+async function inEachLook(page: Page, check: (look: Look) => Promise<void>) {
+  for (const look of ["desktop-light", "phone", "desktop-dark"] as const) {
+    await page.setViewportSize(look === "phone" ? PHONE : DESKTOP);
+    if (look === "desktop-dark") {
+      await useDarkMode(page);
+    }
+    await check(look);
+  }
+}
+
+/** Open a service user's detail page and wait until it has loaded. */
+async function openDetail(page: Page, serviceUserId: string) {
+  await page.goto(`/user/service-users/${serviceUserId}`);
+  await waitForAppReady(page);
+  await expect(page.getByTestId("service-user-detail-page")).toBeVisible({ timeout: 60_000 });
+}
+
+/** The page fits the phone's width and passes axe. */
+async function expectCleanLook(page: Page, label: string) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow, `${label} scrolls sideways`).toBeLessThanOrEqual(0);
+  await expectNoA11yViolations(page, label);
+}
+
+test.describe("pw-su-detail", () => {
+  test("pw-su-detail-groups-happy", async ({ page, request, auth }) => {
+    const { codes } = await asSuperUser(page, request, auth, "detail");
+    await openServiceUsers(page, "/user/service-users/new");
+    const handle = `detail-${Date.now()}`;
+    await fillProfile(page, "Spectra agent", handle, "Reads metrics");
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3", {
+      timeout: 30_000,
+    });
+    await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").check();
+    await page.getByTestId("service-user-access-continue").getByRole("button").click();
+    await answerStepUp(page, await codes.next());
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 3 of 3", {
+      timeout: 30_000,
+    });
+    const serviceUserId = await serviceUserIdFromList(page, handle);
+
+    await inEachLook(page, async (look) => {
+      await openDetail(page, serviceUserId);
+      const identity = page.getByTestId("service-user-detail-identity");
+      await expect(identity).toContainText("Spectra agent");
+      await expect(identity).toContainText(`@${handle}`);
+      await expect(identity).toContainText("Reads metrics");
+      await expect(page.getByTestId("service-user-detail-state")).toHaveText("Active");
+      const groups = page.getByTestId("service-user-detail-groups");
+      await expect(groups).toContainText("Groups (1)");
+      await expect(groups.getByTestId("service-user-detail-group-row")).toHaveText([
+        /Spectra readers/,
+      ]);
+      const permissions = page.getByTestId("service-user-detail-permissions");
+      await expect(permissions).toContainText("Permissions (1)");
+      const row = permissions.getByTestId("service-user-detail-permission-row");
+      await expect(row).toContainText("lab.spectra.query");
+      await expect(row).toContainText("Through Spectra readers");
+      await expectCleanLook(page, `service user detail (${look})`);
+    });
+  });
+
+  test("pw-su-detail-many-groups-scroll-happy", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "many");
+    const [serviceUser] = await seedServiceUsers(request, email, `many${Date.now()}`, 1);
+    await serviceUserLab(request, {
+      action: "seed_memberships",
+      service_user_id: serviceUser.id,
+      groups: 200,
+      permissions: 300,
+    });
+
+    await inEachLook(page, async (look) => {
+      await openDetail(page, serviceUser.id);
+      await expect(page.getByTestId("service-user-detail-groups")).toContainText("Groups (200)");
+      await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
+        "Permissions (300)",
+      );
+
+      // Pause stays on the first screen, and the whole page is under two screens tall.
+      const viewportHeight = page.viewportSize()?.height ?? 0;
+      const pauseBox = await page.getByTestId("service-user-detail-pause").boundingBox();
+      expect(pauseBox, "Pause button is laid out").not.toBeNull();
+      expect(pauseBox!.y + pauseBox!.height, `Pause in reach (${look})`).toBeLessThanOrEqual(
+        viewportHeight,
+      );
+      const pageHeight = await page
+        .getByTestId("service-user-detail-page")
+        .evaluate((el) => el.getBoundingClientRect().height);
+      expect(pageHeight, `page height (${look})`).toBeLessThan(2 * viewportHeight);
+
+      for (const [card, rowId, last, total] of [
+        ["service-user-detail-groups", "service-user-detail-group-row", "Lab group 199", 200],
+        [
+          "service-user-detail-permissions",
+          "service-user-detail-permission-row",
+          "lab.seeded.perm_299",
+          300,
+        ],
+      ] as const) {
+        // Every row is rendered: nothing is cut off and nothing paginates.
+        const rows = page.getByTestId(card).getByTestId(rowId);
+        await expect(rows).toHaveCount(total);
+        const scroller = page.getByTestId(`${card}-scroll`);
+        const sizes = await scroller.evaluate((el) => ({
+          scroll: el.scrollHeight,
+          client: el.clientHeight,
+        }));
+        expect(sizes.scroll, `${card} scrolls inside its card (${look})`).toBeGreaterThan(
+          sizes.client,
+        );
+        await scroller.scrollIntoViewIfNeeded();
+        const lastRow = rows.last();
+        await expect(lastRow).toContainText(last);
+        await expect(lastRow).not.toBeInViewport();
+        await scroller.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        await expect(lastRow).toBeInViewport();
+      }
+      await expectCleanLook(page, `service user with many groups (${look})`);
+    });
+  });
+
+  test("pw-su-pause-resume-happy", async ({ page, request, auth }) => {
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "pause");
+    const [serviceUser] = await seedServiceUsers(request, email, `pause${Date.now()}`, 1);
+
+    await inEachLook(page, async (look) => {
+      await openDetail(page, serviceUser.id);
+      const state = page.getByTestId("service-user-detail-state");
+      await expect(state).toHaveText("Active");
+
+      await page.getByTestId("service-user-detail-pause").getByRole("button").click();
+      await expect(page.getByTestId("service-user-detail-confirm")).toContainText(
+        "tokens stop working",
+      );
+      await expectNoA11yViolations(page, `pause confirm (${look})`);
+      await page.getByTestId("service-user-detail-confirm-submit").getByRole("button").click();
+      await expect(
+        page.getByRole("status").filter({ hasText: `@${serviceUser.handle} is paused` }),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(state).toHaveText("Paused", { timeout: 30_000 });
+      await expect(page.getByRole("button", { name: "New token" })).toBeDisabled();
+      expect(
+        (await serviceUserLab(request, { action: "status", service_user_id: serviceUser.id }))
+          .state,
+      ).toBe("suspended");
+      await expectCleanLook(page, `paused service user (${look})`);
+
+      await page.getByTestId("service-user-detail-resume").getByRole("button").click();
+      await expect(page.getByTestId("service-user-detail-confirm")).toContainText(
+        "tokens work again",
+      );
+      await page.getByTestId("service-user-detail-confirm-submit").getByRole("button").click();
+      await answerStepUp(page, await codes.next());
+      await expect(
+        page.getByRole("status").filter({ hasText: `@${serviceUser.handle} is active again` }),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(state).toHaveText("Active", { timeout: 30_000 });
+      expect(
+        (await serviceUserLab(request, { action: "status", service_user_id: serviceUser.id }))
+          .state,
+      ).toBe("active");
+    });
+  });
+
+  test("pw-su-pause-forbidden-sad", async ({ page, request, auth }) => {
+    const other = uniqueEmail("pauseowner");
+    // Seed the other owner without signing in as them.
+    await request.post("/api/test/seed-data", {
+      data: { scenario: "auth_basic_user", email: other, password: PASSWORD },
+    });
+    await serviceUserLab(request, { action: "join_creators", email: other });
+    const [theirs] = await seedServiceUsers(request, other, `theirs${Date.now()}`, 1);
+
+    const me = await asCreator(page, request, auth, "pauseintruder");
+    await inEachLook(page, async (look) => {
+      await openDetail(page, theirs.id);
+      const nf = page.getByTestId("service-user-detail-not-found");
+      await expect(nf).toContainText("Service user not found");
+      await expect(nf).toContainText("isn't yours to see");
+      await expect(page.getByTestId("service-user-detail-pause")).toHaveCount(0);
+      await expect(page.getByTestId("service-user-detail-groups")).toHaveCount(0);
+      await expectCleanLook(page, `someone else's service user (${look})`);
+    });
+
+    // Learn the pause call from pausing a service user of our own, then aim it at theirs.
+    const [mine] = await seedServiceUsers(request, me, `mine${Date.now()}`, 1);
+    await openDetail(page, mine.id);
+    await page.getByTestId("service-user-detail-pause").getByRole("button").click();
+    const pauseCall = page.waitForRequest(
+      (r) => r.method() === "POST" && (r.postData() ?? "").includes(mine.id),
+    );
+    await page.getByTestId("service-user-detail-confirm-submit").getByRole("button").click();
+    const call = await pauseCall;
+    await expect(page.getByTestId("service-user-detail-state")).toHaveText("Paused", {
+      timeout: 30_000,
+    });
+    const refused = await page.request.post(call.url(), {
+      headers: { "content-type": call.headers()["content-type"] ?? "application/x-www-form-urlencoded" },
+      data: (call.postData() ?? "").replace(mine.id, theirs.id),
+    });
+    expect(await refused.text()).toContain("reason_class=not_found");
+    expect(
+      (await serviceUserLab(request, { action: "status", service_user_id: theirs.id })).state,
+    ).toBe("active");
+  });
+});

@@ -14,7 +14,7 @@ use super::types::{
 };
 
 #[cfg(feature = "ssr")]
-mod ssr {
+pub(super) mod ssr {
     use std::sync::Arc;
 
     use lepton_auth::service_users::ServiceUserError;
