@@ -222,6 +222,16 @@ impl DatabaseBackend for TolerantMemBackend {
 
 /// Lab defaults for first-boot env seeding, applied only when unset.
 ///
+/// A lab setting from the environment, or `default` when it's unset or
+/// blank. The defaults match a single local host; the lane runner sets one
+/// value per lane so each host gets its own mail, SMS and OIDC sidecars.
+pub fn lab_env(key: &str, default: &str) -> String {
+    std::env::var(key)
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| default.to_owned())
+}
+
 /// The cell seeds its delivery settings from env once, exactly as a real host
 /// does. Mail starts on Mailpit, text messages and SendGrid on the lab mocks in
 /// [`crate::mock_providers`], and OAuth on the mock IdP.
@@ -345,9 +355,11 @@ pub async fn boot_platform() -> anyhow::Result<(
     crate::service_users::boot_service_users(&system)
         .await
         .context("service user gate and lab groups")?;
+    // The Playwright origin. A lane runner sets it per lane.
+    let public_base_url = lab_env("UF_PUBLIC_BASE_URL", "http://localhost:3140");
     let delivery = uf_lepton_delivery_boot::install_delivery(
         &system,
-        uf_lepton_delivery_boot::DeliveryOptions::new("http://localhost:3140"),
+        uf_lepton_delivery_boot::DeliveryOptions::new(&public_base_url),
     )
     .await
     .context("install delivery settings")?;
@@ -356,12 +368,12 @@ pub async fn boot_platform() -> anyhow::Result<(
         LeptonAuthServicesBuilder::new()
             .email(delivery.email())
             .sms(delivery.sms())
-            .public_base_url("http://localhost:3140")
+            .public_base_url(public_base_url.clone())
             .oauth_handle(delivery.oauth())
             .webauthn_rp(lepton_auth::devices::WebauthnRpConfig {
-                // Match Playwright origin (`http://localhost:3140`).
+                // Match the Playwright origin (`UF_PUBLIC_BASE_URL`).
                 rp_id: "localhost".into(),
-                rp_origin: "http://localhost:3140".into(),
+                rp_origin: public_base_url,
                 rp_name: "Lepton".into(),
             })
             .build()?,
