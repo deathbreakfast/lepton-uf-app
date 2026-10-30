@@ -9,6 +9,7 @@ ignore = [
     { id = "RUSTSEC-2026-0367", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
     { id = "RUSTSEC-2026-0368", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
     { id = "RUSTSEC-2026-0369", reason = "zip 2.4.2 pinned by orbital-datatable; fix needs zip 9; app never extracts untrusted archives" },
+    { id = "RUSTSEC-2023-0071", reason = "rsa Marvin Attack timing sidechannel, no fixed upgrade available upstream; transitive via sqlx-mysql" },
 ]
 
 [licenses]
@@ -48,15 +49,22 @@ allow-git = [
     "https://github.com/unified-field-dev/Spectra",
     "https://github.com/unified-field-dev/boson",
     "https://github.com/unified-field-dev/boson-valence-identity",
+    "https://github.com/unified-field-dev/chronon",
+    "https://github.com/unified-field-dev/chronon-coordinator",
+    "https://github.com/unified-field-dev/chronon-coordinator-macros",
+    "https://github.com/unified-field-dev/chronon-valence-identity",
+    "https://github.com/unified-field-dev/gauge",
     "https://github.com/unified-field-dev/higgs",
     "https://github.com/unified-field-dev/lepton",
-    "https://github.com/deathbreakfast/lepton",
-    "https://github.com/deathbreakfast/gauge",
     "https://github.com/unified-field-dev/meson",
+    "https://github.com/unified-field-dev/neutrino",
     "https://github.com/unified-field-dev/orbital",
     "https://github.com/unified-field-dev/photon",
     "https://github.com/unified-field-dev/photon-leptos",
     "https://github.com/unified-field-dev/quark",
+    "https://github.com/unified-field-dev/record-history",
+    "https://github.com/unified-field-dev/uf-notifications",
+    "https://github.com/unified-field-dev/uf-oauth-boot",
     "https://github.com/unified-field-dev/unified-field-product",
     "https://github.com/unified-field-dev/valence",
 ]

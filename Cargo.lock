@@ -96,15 +96,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
-dependencies = [
- "derive_arbitrary",
-]
-
-[[package]]
 name = "argon2"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1181,17 +1172,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1356,8 +1336,8 @@ version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
- "crc32fast",
  "miniz_oxide",
+ "zlib-rs",
 ]
 
 [[package]]
@@ -1509,7 +1489,7 @@ dependencies = [
 [[package]]
 name = "gauge"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/gauge?rev=65189dfd5cc4fa51d11359b95275781aa46cf621#65189dfd5cc4fa51d11359b95275781aa46cf621"
+source = "git+https://github.com/unified-field-dev/gauge?branch=main#d628494add2aaaa52eb4f1415abf4917788ace54"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1822,7 +1802,7 @@ dependencies = [
 [[package]]
 name = "higgs"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/higgs?branch=main#368ae0b1075dcf8ce2b8d8f02e666c8a378ade1a"
+source = "git+https://github.com/unified-field-dev/higgs?branch=main#c7315684804fc6c74653bf7edb5186788a1f1791"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1839,7 +1819,7 @@ dependencies = [
 [[package]]
 name = "higgs-core"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/higgs?branch=main#368ae0b1075dcf8ce2b8d8f02e666c8a378ade1a"
+source = "git+https://github.com/unified-field-dev/higgs?branch=main#c7315684804fc6c74653bf7edb5186788a1f1791"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1857,7 +1837,7 @@ dependencies = [
 [[package]]
 name = "higgs-host"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/higgs?branch=main#368ae0b1075dcf8ce2b8d8f02e666c8a378ade1a"
+source = "git+https://github.com/unified-field-dev/higgs?branch=main#c7315684804fc6c74653bf7edb5186788a1f1791"
 dependencies = [
  "anyhow",
  "axum",
@@ -1873,7 +1853,7 @@ dependencies = [
 [[package]]
 name = "higgs-identity"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/higgs?branch=main#368ae0b1075dcf8ce2b8d8f02e666c8a378ade1a"
+source = "git+https://github.com/unified-field-dev/higgs?branch=main#c7315684804fc6c74653bf7edb5186788a1f1791"
 dependencies = [
  "async-trait",
  "serde",
@@ -1883,7 +1863,7 @@ dependencies = [
 [[package]]
 name = "higgs-macros"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/higgs?branch=main#368ae0b1075dcf8ce2b8d8f02e666c8a378ade1a"
+source = "git+https://github.com/unified-field-dev/higgs?branch=main#c7315684804fc6c74653bf7edb5186788a1f1791"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2426,7 +2406,7 @@ dependencies = [
 [[package]]
 name = "lepton"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "lepton-host-adapter",
 ]
@@ -2475,7 +2455,7 @@ dependencies = [
 [[package]]
 name = "lepton-auth"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2564,7 +2544,7 @@ dependencies = [
 [[package]]
 name = "lepton-auth-ui"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "cfg-if",
  "lepton-auth",
@@ -2582,7 +2562,7 @@ dependencies = [
 [[package]]
 name = "lepton-e2e"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2607,7 +2587,7 @@ dependencies = [
 [[package]]
 name = "lepton-host-adapter"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2640,7 +2620,7 @@ dependencies = [
 [[package]]
 name = "lepton-identity"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2685,7 +2665,7 @@ dependencies = [
 [[package]]
 name = "lepton-sms"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2700,7 +2680,7 @@ dependencies = [
 [[package]]
 name = "lepton-smtp"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "async-trait",
  "hickory-resolver",
@@ -2716,7 +2696,7 @@ dependencies = [
 [[package]]
 name = "lepton-test-support"
 version = "0.1.0"
-source = "git+https://github.com/deathbreakfast/lepton?rev=febcde2365e5e7027fc94b92bb050a7c5fbc5500#febcde2365e5e7027fc94b92bb050a7c5fbc5500"
+source = "git+https://github.com/unified-field-dev/lepton?branch=main#63ef0a6fd9c33e6a7bbdb3d9f99da35b3ff163f0"
 dependencies = [
  "axum",
  "chrono",
@@ -3359,7 +3339,7 @@ checksum = "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b"
 [[package]]
 name = "neutrino"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/neutrino?branch=main#6eb11aaaec5ff7e7e409d6e7f68af7f0b2e96fef"
+source = "git+https://github.com/unified-field-dev/neutrino?branch=main#8270405b68d9ac5acfb5012bca0a86d36e0c8455"
 dependencies = [
  "anyhow",
  "argon2",
@@ -3385,7 +3365,7 @@ dependencies = [
 [[package]]
 name = "neutrino-spectra-telemetry"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/neutrino?branch=main#6eb11aaaec5ff7e7e409d6e7f68af7f0b2e96fef"
+source = "git+https://github.com/unified-field-dev/neutrino?branch=main#8270405b68d9ac5acfb5012bca0a86d36e0c8455"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3408,6 +3388,18 @@ name = "next_tuple"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60993920e071b0c9b66f14e2b32740a4e27ffc82854dcd72035887f336a09a28"
+
+[[package]]
+name = "nix"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
 
 [[package]]
 name = "nom"
@@ -3585,11 +3577,12 @@ checksum = "8c04f5d74368e4d0dfe06c45c8627c81bd7c317d52762d118fb9b3076f6420fd"
 [[package]]
 name = "orbital-base-components"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "chrono",
  "icondata",
  "icondata_core",
+ "js-sys",
  "leptos",
  "orbital-data",
  "orbital-motion",
@@ -3608,7 +3601,7 @@ dependencies = [
 [[package]]
 name = "orbital-charts"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "bitflags",
  "chrono",
@@ -3633,7 +3626,7 @@ dependencies = [
 [[package]]
 name = "orbital-core-components"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "chrono",
  "icondata",
@@ -3656,7 +3649,7 @@ dependencies = [
 [[package]]
 name = "orbital-data"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "chrono",
  "serde",
@@ -3665,7 +3658,7 @@ dependencies = [
 [[package]]
 name = "orbital-datatable"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "bitflags",
  "chrono",
@@ -3681,6 +3674,7 @@ dependencies = [
  "orbital-paging",
  "orbital-style",
  "orbital-theme",
+ "send_wrapper",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -3692,7 +3686,7 @@ dependencies = [
 [[package]]
 name = "orbital-date-pickers"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "bitflags",
  "chrono",
@@ -3713,7 +3707,7 @@ dependencies = [
 [[package]]
 name = "orbital-discussion"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "ammonia",
  "bitflags",
@@ -3739,7 +3733,7 @@ dependencies = [
 [[package]]
 name = "orbital-history"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "bitflags",
  "chrono",
@@ -3765,7 +3759,7 @@ dependencies = [
 [[package]]
 name = "orbital-macros"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -3776,7 +3770,7 @@ dependencies = [
 [[package]]
 name = "orbital-markdown"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "ammonia",
  "pulldown-cmark",
@@ -3786,7 +3780,7 @@ dependencies = [
 [[package]]
 name = "orbital-motion"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "icondata",
  "icondata_core",
@@ -3806,7 +3800,7 @@ dependencies = [
 [[package]]
 name = "orbital-paging"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "leptos",
  "leptos-use",
@@ -3817,7 +3811,7 @@ dependencies = [
 [[package]]
 name = "orbital-primitives"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "icondata",
  "icondata_core",
@@ -3842,7 +3836,7 @@ dependencies = [
 [[package]]
 name = "orbital-scheduler"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "bitflags",
  "chrono",
@@ -3867,7 +3861,7 @@ dependencies = [
 [[package]]
 name = "orbital-shell"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "icondata",
  "icondata_core",
@@ -3888,7 +3882,7 @@ dependencies = [
 [[package]]
 name = "orbital-style"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "cfg-if",
  "leptos",
@@ -3899,7 +3893,7 @@ dependencies = [
 [[package]]
 name = "orbital-theme"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#eb61f297709421ad69bba027e7c0d425ff379e54"
 dependencies = [
  "getset",
  "leptos",
@@ -3911,7 +3905,7 @@ dependencies = [
 [[package]]
 name = "orbital-tree"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "icondata_core",
  "inventory",
@@ -3922,7 +3916,7 @@ dependencies = [
 [[package]]
 name = "orbital-ui"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/orbital?branch=main#b507b87e7807bb2386197247214a8bee976455df"
+source = "git+https://github.com/unified-field-dev/orbital?branch=main#117636043716a8e407090b3699b048a96929797b"
 dependencies = [
  "axum",
  "cfg-if",
@@ -4205,7 +4199,7 @@ dependencies = [
 [[package]]
 name = "photon-axum"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#e1295c02a51284c5c0468fb4860fb39d43917936"
+source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#aa37d43e7db290221555140031b895e0fe679fec"
 dependencies = [
  "axum",
  "futures",
@@ -4220,7 +4214,7 @@ dependencies = [
 [[package]]
 name = "photon-backend"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -4246,7 +4240,7 @@ dependencies = [
 [[package]]
 name = "photon-leptos"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#e1295c02a51284c5c0468fb4860fb39d43917936"
+source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#aa37d43e7db290221555140031b895e0fe679fec"
 dependencies = [
  "cfg-if",
  "codee",
@@ -4267,7 +4261,7 @@ dependencies = [
 [[package]]
 name = "photon-leptos-macros"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#e1295c02a51284c5c0468fb4860fb39d43917936"
+source = "git+https://github.com/unified-field-dev/photon-leptos?branch=main#aa37d43e7db290221555140031b895e0fe679fec"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4278,7 +4272,7 @@ dependencies = [
 [[package]]
 name = "photon-macros"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4288,7 +4282,7 @@ dependencies = [
 [[package]]
 name = "photon-runtime"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "futures",
  "photon-backend",
@@ -4304,7 +4298,7 @@ dependencies = [
 [[package]]
 name = "photon-telemetry"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "serde_json",
 ]
@@ -4805,7 +4799,7 @@ dependencies = [
 [[package]]
 name = "record-history"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/record-history?branch=main#41793aaf03df6a6888c466e40984da25d95e72e6"
+source = "git+https://github.com/unified-field-dev/record-history?branch=main#6227879fdd20c4b8657c4bea611b9eb33278dc4b"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5008,9 +5002,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -5357,7 +5351,7 @@ dependencies = [
 [[package]]
 name = "spectra-backend-mem"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/Spectra?branch=main#e314440c28e57f499cbd57b0b176e27a20f44284"
+source = "git+https://github.com/unified-field-dev/Spectra?branch=main#8ac13d43006eabd993e2d79acb2d7c35df21b7f8"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5370,7 +5364,7 @@ dependencies = [
 [[package]]
 name = "spectra-macros"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/Spectra?branch=main#e314440c28e57f499cbd57b0b176e27a20f44284"
+source = "git+https://github.com/unified-field-dev/Spectra?branch=main#8ac13d43006eabd993e2d79acb2d7c35df21b7f8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5380,7 +5374,7 @@ dependencies = [
 [[package]]
 name = "spectra-runtime"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/Spectra?branch=main#e314440c28e57f499cbd57b0b176e27a20f44284"
+source = "git+https://github.com/unified-field-dev/Spectra?branch=main#8ac13d43006eabd993e2d79acb2d7c35df21b7f8"
 dependencies = [
  "chrono",
  "serde_json",
@@ -6331,6 +6325,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed-path"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
+
+[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6368,6 +6368,7 @@ dependencies = [
  "uf-product-macros",
  "uf-valence",
  "uuid",
+ "web-sys",
 ]
 
 [[package]]
@@ -6464,7 +6465,7 @@ dependencies = [
 [[package]]
 name = "uf-photon"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "photon-backend",
  "photon-macros",
@@ -6477,7 +6478,7 @@ dependencies = [
 [[package]]
 name = "uf-photon-core"
 version = "0.1.4"
-source = "git+https://github.com/unified-field-dev/photon?branch=main#b8eae83f25704e104af8958174d9bc3ff5c7824a"
+source = "git+https://github.com/unified-field-dev/photon?branch=main#f3b42a0cc98be04ae704346e9792d01d0dec73a1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6524,7 +6525,7 @@ dependencies = [
 [[package]]
 name = "uf-product-macros"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/unified-field-product?branch=main#0d375ac61d9325cd0469b47b023d23d6cf3e6c87"
+source = "git+https://github.com/unified-field-dev/unified-field-product?branch=main#2d83a89b228aa549b1170b59013d5e15f7dbf2a6"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -6543,7 +6544,7 @@ dependencies = [
 [[package]]
 name = "uf-search-core"
 version = "0.1.0"
-source = "git+https://github.com/unified-field-dev/unified-field-product?branch=main#0d375ac61d9325cd0469b47b023d23d6cf3e6c87"
+source = "git+https://github.com/unified-field-dev/unified-field-product?branch=main#2d83a89b228aa549b1170b59013d5e15f7dbf2a6"
 dependencies = [
  "anyhow",
  "serde",
@@ -6554,7 +6555,7 @@ dependencies = [
 [[package]]
 name = "uf-spectra"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/Spectra?branch=main#e314440c28e57f499cbd57b0b176e27a20f44284"
+source = "git+https://github.com/unified-field-dev/Spectra?branch=main#8ac13d43006eabd993e2d79acb2d7c35df21b7f8"
 dependencies = [
  "chrono",
  "serde",
@@ -6568,7 +6569,7 @@ dependencies = [
 [[package]]
 name = "uf-spectra-core"
 version = "0.1.3"
-source = "git+https://github.com/unified-field-dev/Spectra?branch=main#e314440c28e57f499cbd57b0b176e27a20f44284"
+source = "git+https://github.com/unified-field-dev/Spectra?branch=main#8ac13d43006eabd993e2d79acb2d7c35df21b7f8"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6586,7 +6587,7 @@ dependencies = [
 [[package]]
 name = "uf-valence"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "uf-valence-backend-mem",
  "uf-valence-backend-sqlite",
@@ -6597,7 +6598,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-backend-mem"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -6608,7 +6609,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-backend-sql"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "serde",
  "serde_json",
@@ -6623,7 +6624,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-backend-sqlite"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "async-trait",
  "serde_json",
@@ -6631,12 +6632,13 @@ dependencies = [
  "tokio",
  "uf-valence-backend-sql",
  "uf-valence-core",
+ "uuid",
 ]
 
 [[package]]
 name = "uf-valence-codegen"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "anyhow",
  "prettyplease",
@@ -6650,7 +6652,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-core"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6669,7 +6671,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-macros"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6680,7 +6682,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-schema-dsl"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6690,7 +6692,7 @@ dependencies = [
 [[package]]
 name = "uf-valence-telemetry"
 version = "0.1.5"
-source = "git+https://github.com/unified-field-dev/valence?branch=main#fa4d8002ca4e0567b484ed39ae0f076e5cb84820"
+source = "git+https://github.com/unified-field-dev/valence?branch=main#6a27698507c61eb5ce0287e28798b8711f14a994"
 dependencies = [
  "serde_json",
 ]
@@ -7050,9 +7052,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.9"
+version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
+checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
 dependencies = [
  "rustls-pki-types",
 ]
@@ -7079,7 +7081,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7464,20 +7466,26 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.4.2"
+version = "9.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
+checksum = "1156b39d142a34b999c2310a50455e0cb3760bf7efad0122f796d813bee26ccb"
 dependencies = [
- "arbitrary",
  "crc32fast",
- "crossbeam-utils",
- "displaydoc",
  "flate2",
+ "getrandom 0.4.3",
  "indexmap",
  "memchr",
- "thiserror 2.0.20",
+ "nix",
+ "typed-path",
+ "windows-sys 0.61.2",
  "zopfli",
 ]
+
+[[package]]
+name = "zlib-rs"
+version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
 
 [[package]]
 name = "zmij"
