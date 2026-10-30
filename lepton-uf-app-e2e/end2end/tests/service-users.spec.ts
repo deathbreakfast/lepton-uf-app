@@ -255,7 +255,7 @@ test.describe("pw-lepton-service-users", () => {
   });
 
   test("pw-lepton-service-users-continue-pending-happy", async ({ page, request, auth }) => {
-    const { codes } = await asCreatorWithTotp(page, request, auth, "pending");
+    const { codes } = await asSuperUser(page, request, auth, "pending");
     await openServiceUsers(page, "/user/service-users/new");
     await fillProfile(page, "Pending", `pending-${Date.now()}`);
     await page.getByTestId("service-user-create-submit").getByRole("button").click();

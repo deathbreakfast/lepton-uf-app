@@ -215,19 +215,3 @@ orbital-tree = { git = "https://github.com/unified-field-dev/orbital", branch = 
 orbital-scheduler = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 
-
-# Service users live on lepton's and gauge's mcp-server branches (deathbreakfast
-# forks), pinned by rev, until they land on unified-field-dev main. Re-point to main then.
-[patch."https://github.com/unified-field-dev/lepton"]
-lepton = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-auth = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-auth-ui = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-e2e = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-host-adapter = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-identity = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-sms = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-smtp = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-lepton-test-support = { git = "https://github.com/deathbreakfast/lepton", rev = "febcde2365e5e7027fc94b92bb050a7c5fbc5500" }
-
-[patch."https://github.com/unified-field-dev/gauge"]
-gauge = { git = "https://github.com/deathbreakfast/gauge", rev = "65189dfd5cc4fa51d11359b95275781aa46cf621" }
