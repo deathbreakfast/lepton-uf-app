@@ -44,7 +44,8 @@ yourself. Anything that reads a code out of email needs it up first: the confirm
 funnel, email change, and password reset.
 
 ```bash
-docker compose -f ../../../L1-host-stack-kits/lepton/infra/mailpit/docker-compose.yml up -d
+# From a lepton checkout (https://github.com/unified-field-dev/lepton):
+docker compose -f infra/mailpit/docker-compose.yml up -d
 ```
 
 Delivery is synchronous. No Boson runtime is installed, so a code is readable from
@@ -76,7 +77,7 @@ npm run test:headed
 
 `POST /api/test/seed-data` is mounted for the harness only. Never mount it on a
 production host. Scenarios and builders live in
-[`lepton-test-support`](../../../L1-host-stack-kits/lepton/lepton-test-support/):
+[`lepton-test-support`](https://github.com/unified-field-dev/lepton/tree/main/lepton-test-support):
 `auth_basic_user`, `auth_unverified_user`, `auth_confirm_*`, `auth_reset_token`,
 `auth_user_with_totp`, and siblings.
 
@@ -149,7 +150,7 @@ from the session (see workspace README Security → Host duties).
 ## Deferred to the kit (do not re-prove here)
 
 Primary coverage for these stays in
-[`lepton-auth-ui-e2e/end2end/tests/`](../../../L1-host-stack-kits/lepton/lepton-auth-ui-e2e/end2end/tests/):
+[`lepton-auth-ui-e2e/end2end/tests/`](https://github.com/unified-field-dev/lepton/tree/main/lepton-auth-ui-e2e/end2end/tests):
 
 | Concern | Kit scenario / spec |
 |---------|---------------------|

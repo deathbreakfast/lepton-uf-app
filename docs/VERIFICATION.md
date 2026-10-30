@@ -62,7 +62,8 @@ Needs Mailpit on SMTP `1025` / API `8025` (change-email assertions). The product
 host uses `Lazy` `/user` routes, so end-to-end must pass `--split`:
 
 ```bash
-docker compose -f ../../L1-host-stack-kits/lepton/infra/mailpit/docker-compose.yml up -d
+# From a lepton checkout (https://github.com/unified-field-dev/lepton):
+docker compose -f infra/mailpit/docker-compose.yml up -d
 # From the lepton-uf-app workspace root. Builds SSR + hydrate (wasm-split), then Playwright.
 cargo leptos end-to-end --split --project lepton-uf-app-e2e
 ```
