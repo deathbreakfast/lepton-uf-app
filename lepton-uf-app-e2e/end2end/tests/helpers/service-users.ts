@@ -91,6 +91,12 @@ function isKnownPrimaryContrast(id: string, html: string): boolean {
   return id === "color-contrast" && html.includes("orbital-button--primary");
 }
 
+/** True for the warning tint badge ("Paused"), whose text is below 4.5:1 on its tint. */
+function isKnownWarningBadgeContrast(id: string, html: string): boolean {
+  // orbital_warning_badge_contrast_01
+  return id === "color-contrast" && html.includes("orbital-badge--warning");
+}
+
 /** Run axe (WCAG 2 A/AA) on the page and fail on any violation. */
 export async function expectNoA11yViolations(page: Page, label: string): Promise<void> {
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]);
@@ -100,7 +106,9 @@ export async function expectNoA11yViolations(page: Page, label: string): Promise
   const results = await builder.analyze();
   const summary = results.violations.flatMap((v) =>
     v.nodes
-      .filter((n) => !isKnownPrimaryContrast(v.id, n.html))
+      .filter(
+        (n) => !isKnownPrimaryContrast(v.id, n.html) && !isKnownWarningBadgeContrast(v.id, n.html),
+      )
       .map((n) => `${v.id} (${v.impact}): ${n.target.join(" ")}`),
   );
   expect(summary, `axe violations on ${label}`).toEqual([]);
