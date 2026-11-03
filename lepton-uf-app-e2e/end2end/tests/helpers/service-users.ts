@@ -85,12 +85,6 @@ const KNOWN_UPSTREAM_EXCLUDES = [
   '[data-testid="service-user-create-stepper"] .orbital-spinner',
 ];
 
-/** True for white text on Orbital's default brand primary button (3.55:1). */
-function isKnownPrimaryContrast(id: string, html: string): boolean {
-  // orbital_primary_button_contrast_01
-  return id === "color-contrast" && html.includes("orbital-button--primary");
-}
-
 /** True for the warning tint badge ("Paused"), whose text is below 4.5:1 on its tint. */
 function isKnownWarningBadgeContrast(id: string, html: string): boolean {
   // orbital_warning_badge_contrast_01
@@ -106,9 +100,7 @@ export async function expectNoA11yViolations(page: Page, label: string): Promise
   const results = await builder.analyze();
   const summary = results.violations.flatMap((v) =>
     v.nodes
-      .filter(
-        (n) => !isKnownPrimaryContrast(v.id, n.html) && !isKnownWarningBadgeContrast(v.id, n.html),
-      )
+      .filter((n) => !isKnownWarningBadgeContrast(v.id, n.html))
       .map((n) => `${v.id} (${v.impact}): ${n.target.join(" ")}`),
   );
   expect(summary, `axe violations on ${label}`).toEqual([]);
