@@ -90,6 +90,18 @@ test.describe("pw-lepton-service-users", () => {
     await expectNoA11yViolations(page, "service users empty state");
   });
 
+  test("pw-lepton-service-users-card-links-to-detail-happy", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "detail-link");
+    const [seeded] = await seedServiceUsers(request, email, "linked", 1);
+    await openServiceUsers(page);
+    const card = page.getByTestId(`service-user-card-${seeded.handle}`);
+    await card.getByRole("link", { name: `@${seeded.handle}` }).click();
+    await expect(page).toHaveURL(new RegExp(`/user/service-users/${seeded.id}$`), {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("service-user-detail-page")).toBeVisible({ timeout: 60_000 });
+  });
+
   test("pw-lepton-service-users-no-permission-sad", async ({ page, auth }) => {
     const email = uniqueEmail("noperm");
     await auth.signIn({ email, password: PASSWORD, referer: "/user/account-settings" });
