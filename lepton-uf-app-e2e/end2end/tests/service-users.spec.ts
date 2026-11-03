@@ -128,6 +128,15 @@ test.describe("pw-lepton-service-users", () => {
     await waitForAppReady(page);
     await expect(page.getByTestId("service-users-list")).toHaveCount(0);
     await expect(page.getByTestId("service-users-empty")).toHaveCount(0);
+    // The page asks for a sign-in instead of showing anything.
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("Sign in required")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign In", exact: true })).toBeVisible();
+    // The create page is gated the same way.
+    await page.goto("/user/service-users/new");
+    await waitForAppReady(page);
+    await expect(page.getByText("Sign in required")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("service-user-display-name")).toHaveCount(0);
   });
 
   test("pw-lepton-service-users-create-full-happy", async ({ page, request, auth }) => {
@@ -203,6 +212,10 @@ test.describe("pw-lepton-service-users", () => {
         configurable: true,
       });
     });
+    // The reveal card is a raised surface: elevation class plus a visible shadow.
+    const card = page.getByTestId("service-user-token-reveal").locator(".orbital-material--elev-raised");
+    await expect(card).toBeVisible();
+    expect(await card.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe("none");
     await page.getByTestId("service-user-token-copy").getByRole("button").click();
     await expect(page.getByTestId("service-user-token-copy-failed")).toContainText("Couldn't copy");
     await expect(page.getByTestId("service-user-token-copy")).not.toContainText("Copied");
@@ -286,6 +299,38 @@ test.describe("pw-lepton-service-users", () => {
     await expect(skip).toBeDisabled();
     await expect(page.getByTestId("service-user-access-continue").getByRole("button")).toBeDisabled();
     await answerStepUp(page, await codes.next());
+  });
+
+  test("pw-lepton-service-users-access-step-up-sad", async ({ page, request, auth }) => {
+    const { codes } = await asSuperUser(page, request, auth, "stepupsad");
+    await openServiceUsers(page, "/user/service-users/new");
+    const handle = `stepupsad-${Date.now()}`;
+    await fillProfile(page, "Step up sad", handle);
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3", {
+      timeout: 30_000,
+    });
+    await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").check();
+    await page.getByTestId("service-user-access-continue").getByRole("button").click();
+
+    // An empty answer is refused before it reaches the server.
+    const dialog = page.getByTestId("step-up-dialog");
+    await expect(dialog).toBeVisible({ timeout: 30_000 });
+    await dialog.getByTestId("step-up-submit").getByRole("button").click();
+    await expect(dialog.getByTestId("step-up-error")).toContainText("Enter the code");
+
+    // A code from the wrong time step is rejected; nothing is granted.
+    const valid = await codes.next();
+    const wrong = String((Number(valid) + 1) % 1_000_000).padStart(6, "0");
+    await dialog.getByTestId("step-up-totp").locator("input").fill(wrong);
+    await dialog.getByTestId("step-up-submit").getByRole("button").click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId("step-up-error")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3");
+    await expectNoA11yViolations(page, "access step-up error");
+    const serviceUserId = await serviceUserIdFromList(page, handle);
+    const before = await serviceUserLab(request, { action: "in_readers", service_user_id: serviceUserId });
+    expect(before.member).toBe(false);
   });
 
   test("pw-lepton-service-users-access-not-grantable-sad", async ({ page, request, auth }) => {
@@ -424,6 +469,19 @@ test.describe("pw-lepton-service-users", () => {
     await expectNoA11yViolations(page, "service users list (dark)");
     await openServiceUsers(page, "/user/service-users/new");
     await expectNoA11yViolations(page, "create step 1 (dark)");
+  });
+
+  test("pw-lepton-service-users-dark-access-reveal", async ({ page, request, auth }) => {
+    const { codes } = await asCreatorWithTotp(page, request, auth, "darkflow");
+    await useDarkMode(page);
+    await openServiceUsers(page, "/user/service-users/new");
+    await fillProfile(page, "Dark flow", `darkflow-${Date.now()}`);
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    await expect(page.getByTestId("service-user-access-continue")).toBeVisible({ timeout: 30_000 });
+    await expectNoA11yViolations(page, "access step (dark)");
+    await tokenOnlyToReveal(page, codes);
+    await expect(page.getByTestId("service-user-token-reveal")).toBeVisible();
+    await expectNoA11yViolations(page, "token reveal (dark)");
   });
 
   test("pw-lepton-service-users-mobile-390", async ({ page, request, auth }) => {
