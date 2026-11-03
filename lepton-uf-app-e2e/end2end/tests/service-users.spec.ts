@@ -1094,7 +1094,9 @@ test.describe("pw-su-delete-tokens", () => {
     await inEachLook(page, async (look) => {
       await openDetail(page, serviceUserId);
       const groups = page.getByTestId("service-user-detail-groups");
-      if ((await groups.getByTestId("service-user-detail-group-row").count()) === 0) {
+      // The card renders once the details have loaded, so its heading is a safe read.
+      await expect(groups).toContainText(/Groups \(\d+\)/, { timeout: 30_000 });
+      if ((await groups.textContent())?.includes("Groups (0)")) {
         // A previous look already removed it; put it back through Change access.
         await page.getByTestId("service-user-detail-change-access").getByRole("button").click();
         const dialog = page.getByRole("dialog");
