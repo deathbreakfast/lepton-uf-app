@@ -133,6 +133,41 @@ impl LabTokens {
         Ok(())
     }
 
+    /// Take `service_user` out of `group_id`, with the permissions it gave.
+    fn remove_group(
+        &self,
+        service_user: &str,
+        group_id: &str,
+    ) -> Result<(), ServiceUserAccessError> {
+        let mut m = self
+            .memberships
+            .lock()
+            .map_err(|_| ServiceUserAccessError::Store {
+                reason_class: "lab_lock",
+            })?;
+        if let Some(entry) = m.get_mut(service_user) {
+            let name = entry
+                .groups
+                .iter()
+                .find(|g| g.id == group_id)
+                .map(|g| g.name.clone());
+            entry.groups.retain(|g| g.id != group_id);
+            if let Some(name) = name {
+                entry.permissions.retain(|p| p.via_group != name);
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether `service_user` is in the lab readers group.
+    fn in_readers(&self, service_user: &str) -> Result<bool, ServiceUserAccessError> {
+        Ok(self
+            .membership(service_user)?
+            .groups
+            .iter()
+            .any(|g| g.id == LAB_READERS_GROUP_ID))
+    }
+
     fn membership(&self, service_user: &str) -> Result<LabMembership, ServiceUserAccessError> {
         let m = self
             .memberships
@@ -328,6 +363,52 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
             return Err(ServiceUserAccessError::Forbidden);
         }
         self.tokens.revoke(service_user.as_str(), public_id)
+    }
+
+    async fn rotate_token(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        public_id: &str,
+    ) -> Result<MintedToken, ServiceUserAccessError> {
+        if !matches!(v.actor(), Actor::User { .. }) {
+            return Err(ServiceUserAccessError::Forbidden);
+        }
+        let old = self
+            .tokens
+            .list(service_user.as_str())?
+            .into_iter()
+            .find(|t| t.public_id == public_id);
+        // Revoking first reports a missing or foreign token the way Revoke does.
+        self.tokens.revoke(service_user.as_str(), public_id)?;
+        let label = old.map(|t| t.label).unwrap_or_default();
+        self.mint_token(v, service_user, &label, TokenTtl::default(), &[])
+            .await
+    }
+
+    async fn current_access(
+        &self,
+        _v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<&'static str>, ServiceUserAccessError> {
+        // Lab tokens carry no recorded scopes, so only group membership counts.
+        Ok(if self.tokens.in_readers(service_user.as_str())? {
+            vec!["spectra-read"]
+        } else {
+            Vec::new()
+        })
+    }
+
+    async fn revoke_group(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        group_id: &str,
+    ) -> Result<(), ServiceUserAccessError> {
+        gauge::service::remove_group_member_service_user(group_id, service_user, v)
+            .await
+            .map_err(|e| gauge_err(&e, "spectra-read"))?;
+        self.tokens.remove_group(service_user.as_str(), group_id)
     }
 
     async fn mint_token(
