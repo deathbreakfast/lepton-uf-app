@@ -211,7 +211,7 @@
 //! mounted; a Lepton service user gate installed at boot; a token service that can issue
 //! a token owned by a service user.
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use std::sync::{Arc, Mutex};
 //!
 //! use lepton_app::service_users::{
@@ -243,9 +243,9 @@
 //!     }
 //!
 //!     async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, ServiceUserAccessError> {
-//!         gauge::service::can_add_group_member_service_user(group_id, v)
-//!             .await
-//!             .map_err(|_| ServiceUserAccessError::Store { reason_class: "gauge_lookup" })
+//!         // Ask Gauge whether the viewer owns `group_id` (the host calls its Gauge service here).
+//!         let _ = (v, group_id);
+//!         Ok(true)
 //!     }
 //!
 //!     async fn grant_group(
@@ -255,9 +255,9 @@
 //!         group_id: &'static str,
 //!         choice: &'static str,
 //!     ) -> Result<(), ServiceUserAccessError> {
-//!         gauge::service::add_group_member_service_user(group_id, service_user, v)
-//!             .await
-//!             .map_err(|_| ServiceUserAccessError::NotGrantable { choice })
+//!         // Add the service user to the Gauge group (the host calls its Gauge service here).
+//!         let _ = (v, service_user, group_id, choice);
+//!         Ok(())
 //!     }
 //!
 //!     async fn mint_token(
@@ -286,7 +286,9 @@
 //! }
 //!
 //! // Inside the host's per-request context closure:
+//! # fn per_request_context() {
 //! provide_service_user_access_backend(Arc::new(SiteServiceUsers::default()));
+//! # }
 //! ```
 //!
 //! After this, `/user/service-users/new` offers "Read metrics". Picking it adds the service user
