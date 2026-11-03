@@ -243,9 +243,8 @@
 //!     }
 //!
 //!     async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, ServiceUserAccessError> {
-//!         // Ask Gauge whether the viewer owns `group_id` (the host calls its Gauge service here).
 //!         let _ = (v, group_id);
-//!         Ok(true)
+//!         todo!("call your Gauge service: does the viewer own group_id?")
 //!     }
 //!
 //!     async fn grant_group(
@@ -255,9 +254,8 @@
 //!         group_id: &'static str,
 //!         choice: &'static str,
 //!     ) -> Result<(), ServiceUserAccessError> {
-//!         // Add the service user to the Gauge group (the host calls its Gauge service here).
 //!         let _ = (v, service_user, group_id, choice);
-//!         Ok(())
+//!         todo!("add the service user to the Gauge group")
 //!     }
 //!
 //!     async fn mint_token(
