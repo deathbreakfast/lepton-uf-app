@@ -15,7 +15,7 @@ fn reason_class(raw: &str) -> &str {
 #[must_use]
 pub fn friendly_error(raw: &str) -> &'static str {
     if raw.contains("STEP_UP:") {
-        return "Confirm it's you with your authenticator code, then try again.";
+        return "Confirm it's you with your authenticator code, then try again. Without an authenticator app, set one up in account settings first.";
     }
     match reason_class(raw) {
         "session" | "actor" => "Sign in again to manage service users.",

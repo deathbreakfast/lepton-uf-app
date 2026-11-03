@@ -23,6 +23,7 @@ mod create;
 mod detail;
 mod error;
 mod list_page;
+mod needs_authenticator;
 mod port;
 mod request_access;
 mod search;
