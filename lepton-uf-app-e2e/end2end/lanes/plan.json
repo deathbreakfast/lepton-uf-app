@@ -1,0 +1,46 @@
+{
+  "n": 8,
+  "total_seconds": 391.8,
+  "lists": [
+    {
+      "index": 1,
+      "tests": 3,
+      "predicted_seconds": 50.2
+    },
+    {
+      "index": 2,
+      "tests": 5,
+      "predicted_seconds": 49.3
+    },
+    {
+      "index": 3,
+      "tests": 7,
+      "predicted_seconds": 50.5
+    },
+    {
+      "index": 4,
+      "tests": 5,
+      "predicted_seconds": 48.9
+    },
+    {
+      "index": 5,
+      "tests": 9,
+      "predicted_seconds": 48.6
+    },
+    {
+      "index": 6,
+      "tests": 13,
+      "predicted_seconds": 47.3
+    },
+    {
+      "index": 7,
+      "tests": 9,
+      "predicted_seconds": 48.7
+    },
+    {
+      "index": 8,
+      "tests": 12,
+      "predicted_seconds": 48.3
+    }
+  ]
+}

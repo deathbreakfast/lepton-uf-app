@@ -63,6 +63,37 @@ cargo leptos end-to-end --split --project lepton-uf-app-e2e
 
 Do not interrupt the end-to-end run. It stops on its own when Playwright finishes.
 
+### Run as lanes
+
+`end2end/run-lanes.sh` builds once with the same `cargo leptos build` line as
+CI, starts one host per lane, and runs each lane's test list on its own host.
+It needs Docker, because every lane gets its own Mailpit. The default is
+8 lanes; `LANES=n` changes it, but the committed lists in `end2end/lanes/` are
+packed for 8, and any other count falls back to Playwright's `--shard`.
+
+```bash
+cd lepton-uf-app-e2e/end2end
+./run-lanes.sh                         # full run, 8 lanes
+./run-lanes.sh -g "pw-su-pause"        # targeted: one host, one lane
+./run-lanes.sh --serial --out /tmp/serial   # every test in order, one host
+```
+
+Results, per-lane logs and a stage timing table land in
+`end2end/lanes-out/<stamp>/` (`summary.md`). The run fails on any failed,
+missing or duplicated test.
+
+The lists come from a serial run's per-test times. To pack them again after
+adding or reshaping specs:
+
+```bash
+./run-lanes.sh --serial --out /tmp/serial
+python3 -I lanes.py partition --results /tmp/serial/lane-1/results.json \
+  --n 8 --out lanes --split service-users.spec.ts
+```
+
+New tests that no list names are dealt out round-robin until the lists are
+packed again.
+
 To watch the browser, serve in one terminal and drive Playwright in another:
 
 ```bash
