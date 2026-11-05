@@ -335,6 +335,21 @@ test.describe("pw-lepton-service-users", () => {
     await expect(page.getByTestId("service-user-display-name")).toHaveCount(0);
   });
 
+  test("pw-lepton-service-users-token-no-authenticator-sad", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "tok-no-totp");
+    const [serviceUser] = await seedServiceUsers(request, email, `toknt${Date.now()}`, 1);
+    await openServiceUsers(page, `/user/service-users/${serviceUser.id}/token`);
+    await page.getByTestId("service-user-token-scope-magnon-read").getByRole("checkbox").check();
+    await page.getByTestId("service-user-token-label").locator("input").fill("No authenticator");
+    const notice = page.getByTestId("service-user-needs-authenticator");
+    await expect(notice).toContainText("You need an authenticator app to create a token");
+    await expect(notice.getByRole("link", { name: "Set one up in account settings" })).toHaveAttribute(
+      "href",
+      "/user/account-settings",
+    );
+    await expect(page.getByTestId("service-user-token-submit").getByRole("button")).toBeDisabled();
+  });
+
   test("pw-lepton-service-users-token-limit-sad", async ({ page, request, auth }) => {
     const { email, codes } = await asCreatorWithTotp(page, request, auth, "tokcap");
     const [serviceUser] = await seedServiceUsers(request, email, `tokcap${Date.now()}`, 1);

@@ -24,7 +24,7 @@ pub(super) fn NeedsAuthenticator(action: &'static str) -> impl IntoView {
     view! {
         <div data-testid="service-user-needs-authenticator">
             <MessageBar intent=MessageBarIntent::Warning>
-                {format!("You need an authenticator app to {action}. ")}
+                "You need an authenticator app to "{action}". "
                 <Link href=paths::ACCOUNT_SETTINGS>"Set one up in account settings"</Link>
                 " and come back."
             </MessageBar>
