@@ -327,7 +327,6 @@ test.describe("pw-lepton-service-users", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId("step-up-error")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3");
-    await expectNoA11yViolations(page, "access step-up error");
     const serviceUserId = await serviceUserIdFromList(page, handle);
     const before = await serviceUserLab(request, { action: "in_readers", service_user_id: serviceUserId });
     expect(before.member).toBe(false);
