@@ -1056,11 +1056,17 @@ test.describe("pw-su-delete-tokens", () => {
     expect(now).toContain(other);
     expect(now).not.toContain(used);
     expect(now).toHaveLength(2);
-    await inEachLook(page, (look) => expectCleanLook(page, `rotated token (${look})`));
+    await page.setViewportSize(DESKTOP);
+    await expectCleanLook(page, "rotated token (desktop-light)");
+    await page.setViewportSize(PHONE);
+    await expectCleanLook(page, "rotated token (phone)");
 
-    // Leaving the page drops the secret; it is never shown again.
+    // Dark mode leaves the page, and coming back drops the secret; it is never shown again.
+    await page.setViewportSize(DESKTOP);
+    await useDarkMode(page);
     await openDetail(page, serviceUser.id);
     await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
+    await expectCleanLook(page, "rotated token list (desktop-dark)");
   });
 
   test("pw-su-token-rotate-wrong-code-sad", async ({ page, request, auth }) => {
@@ -1114,7 +1120,15 @@ test.describe("pw-su-delete-tokens", () => {
     await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
       "Permissions (0)",
     );
-    await inEachLook(page, (look) => expectCleanLook(page, `after group removal (${look})`));
+    await page.setViewportSize(DESKTOP);
+    await expectCleanLook(page, "after group removal (desktop-light)");
+    await page.setViewportSize(PHONE);
+    await expectCleanLook(page, "after group removal (phone)");
+    // Dark mode leaves the page, so open it again.
+    await page.setViewportSize(DESKTOP);
+    await useDarkMode(page);
+    await openDetail(page, serviceUserId);
+    await expectCleanLook(page, "after group removal (desktop-dark)");
   });
 
   test("pw-su-change-access-happy", async ({ page, request, auth }) => {
