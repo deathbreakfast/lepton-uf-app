@@ -14,6 +14,7 @@ pub use reveal::TokenReveal;
 
 use super::error::friendly_error;
 use super::list_page::ServiceUserBadge;
+use super::needs_authenticator::{use_authenticator_missing, NeedsAuthenticator};
 use super::server::{get_service_user_row, mint_service_user_token, service_user_access_choices};
 use super::step_up::spawn_with_fresh_code;
 use super::types::{AccessChoiceView, MintedTokenView, ServiceUserRow, ServiceUserState, TokenTtl};
@@ -84,8 +85,10 @@ fn Fields(
                 .collect::<Vec<_>>()
         })
     };
-    let can_submit =
-        Signal::derive(move || !label.with(|l| l.trim().is_empty()) && !keys().is_empty());
+    let authenticator_missing = use_authenticator_missing();
+    let can_submit = Signal::derive(move || {
+        !label.with(|l| l.trim().is_empty()) && !keys().is_empty() && !authenticator_missing.get()
+    });
 
     let submit = move |_| {
         error.set(None);
@@ -141,6 +144,9 @@ fn Fields(
                 <Field label="This token can">
                     <Flex vertical=true gap=FlexGap::Small>{rows}</Flex>
                 </Field>
+                <Show when=move || authenticator_missing.get()>
+                    <NeedsAuthenticator action="create a token" />
+                </Show>
                 {move || error.get().map(|e| view! {
                     <div data-testid="service-user-token-error">
                         <MessageBar intent=MessageBarIntent::Error>{friendly_error(&e)}</MessageBar>

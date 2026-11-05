@@ -295,6 +295,34 @@ test.describe("pw-lepton-service-users", () => {
     await expectNoA11yViolations(page, "access step");
   });
 
+  test("pw-lepton-service-users-access-no-authenticator-sad", async ({ page, request, auth }) => {
+    // A super user who never enrolled an authenticator can pick group access but can't confirm it.
+    const email = await asCreator(page, request, auth, "no-totp");
+    await serviceUserLab(request, { action: "super_user", email });
+    await openServiceUsers(page, "/user/service-users/new");
+    await fillProfile(page, "No authenticator", `no-totp-${Date.now()}`);
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3", {
+      timeout: 30_000,
+    });
+    const notice = page.getByTestId("service-user-needs-authenticator");
+    const next = page.getByTestId("service-user-access-continue").getByRole("button");
+    await expect(notice).toHaveCount(0);
+    await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").check();
+    await expect(notice).toContainText("You need an authenticator app to add a service user to a group");
+    await expect(notice.getByRole("link", { name: "Set one up in account settings" })).toHaveAttribute(
+      "href",
+      "/user/account-settings",
+    );
+    await expect(next).toBeDisabled();
+    // Token-only access needs no group change, so the step still moves on.
+    await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").uncheck();
+    await page.getByTestId("service-user-access-magnon-read").getByRole("checkbox").check();
+    await expect(notice).toHaveCount(0);
+    await expect(next).toBeEnabled();
+    await expectNoA11yViolations(page, "access step without an authenticator");
+  });
+
   test("pw-lepton-service-users-quota-sad", async ({ page, request, auth }) => {
     const email = await asCreator(page, request, auth, "quota");
     await seedServiceUsers(request, email, `quota${Date.now()}`, 10);
@@ -305,6 +333,21 @@ test.describe("pw-lepton-service-users", () => {
     await openServiceUsers(page, "/user/service-users/new");
     await expect(page.getByTestId("service-users-at-limit")).toContainText("Delete one to make room");
     await expect(page.getByTestId("service-user-display-name")).toHaveCount(0);
+  });
+
+  test("pw-lepton-service-users-token-no-authenticator-sad", async ({ page, request, auth }) => {
+    const email = await asCreator(page, request, auth, "tok-no-totp");
+    const [serviceUser] = await seedServiceUsers(request, email, `toknt${Date.now()}`, 1);
+    await openServiceUsers(page, `/user/service-users/${serviceUser.id}/token`);
+    await page.getByTestId("service-user-token-scope-magnon-read").getByRole("checkbox").check();
+    await page.getByTestId("service-user-token-label").locator("input").fill("No authenticator");
+    const notice = page.getByTestId("service-user-needs-authenticator");
+    await expect(notice).toContainText("You need an authenticator app to create a token");
+    await expect(notice.getByRole("link", { name: "Set one up in account settings" })).toHaveAttribute(
+      "href",
+      "/user/account-settings",
+    );
+    await expect(page.getByTestId("service-user-token-submit").getByRole("button")).toBeDisabled();
   });
 
   test("pw-lepton-service-users-token-limit-sad", async ({ page, request, auth }) => {
