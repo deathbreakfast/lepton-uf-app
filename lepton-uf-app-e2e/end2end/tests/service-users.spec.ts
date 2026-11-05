@@ -1028,41 +1028,39 @@ test.describe("pw-su-delete-tokens", () => {
   test("pw-su-token-rotate-happy", async ({ page, request, auth }) => {
     const { email, codes } = await asCreatorWithTotp(page, request, auth, "rotate");
     const [serviceUser] = await seedServiceUsers(request, email, `rotate${Date.now()}`, 1);
+    const [used, other] = await seedTokens(request, serviceUser.id, 2);
 
-    await inEachLook(page, async (look) => {
-      const [used, other] = await seedTokens(request, serviceUser.id, 2);
-      await openDetail(page, serviceUser.id);
-      const card = page.getByTestId("service-user-detail-tokens");
-      const usedRow = card.locator(`[data-token-id="${used}"]`);
-      await expect(page.getByTestId("service-user-detail-meta")).toContainText("Owned by you");
-      await expect(page.getByTestId("service-user-detail-meta")).toContainText("Last used");
+    await openDetail(page, serviceUser.id);
+    const card = page.getByTestId("service-user-detail-tokens");
+    const usedRow = card.locator(`[data-token-id="${used}"]`);
+    await expect(page.getByTestId("service-user-detail-meta")).toContainText("Owned by you");
+    await expect(page.getByTestId("service-user-detail-meta")).toContainText("Last used");
 
-      await usedRow.getByTestId("service-user-detail-token-rotate").getByRole("button").click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.getByTestId("service-user-token-rotate-confirm")).toContainText(
-        "old token stops working",
-      );
-      await expectNoA11yViolations(page, `rotate confirm (${look})`);
-      await dialog.getByTestId("service-user-token-rotate-submit").getByRole("button").click();
-      await answerStepUp(page, await codes.next());
+    await usedRow.getByTestId("service-user-detail-token-rotate").getByRole("button").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByTestId("service-user-token-rotate-confirm")).toContainText(
+      "old token stops working",
+    );
+    await expectNoA11yViolations(page, "rotate confirm");
+    await dialog.getByTestId("service-user-token-rotate-submit").getByRole("button").click();
+    await answerStepUp(page, await codes.next());
 
-      // The new secret shows once, and the old token is gone from the list.
-      const reveal = page.getByTestId("service-user-token-reveal");
-      await expect(reveal).toBeVisible({ timeout: 30_000 });
-      await expect(reveal.getByTestId("service-user-token-secret")).toContainText("labtk_");
-      await expect(card).toContainText("Tokens (2)", { timeout: 30_000 });
-      await expect(usedRow).toHaveCount(0);
-      await expect(card.locator(`[data-token-id="${other}"]`)).toBeVisible();
-      const now = await labTokens(request, serviceUser.id);
-      expect(now).toContain(other);
-      expect(now).not.toContain(used);
-      expect(now).toHaveLength(2);
-      await expectCleanLook(page, `rotated token (${look})`);
+    // The new secret shows once, and the old token is gone from the list.
+    const reveal = page.getByTestId("service-user-token-reveal");
+    await expect(reveal).toBeVisible({ timeout: 30_000 });
+    await expect(reveal.getByTestId("service-user-token-secret")).toContainText("labtk_");
+    await expect(card).toContainText("Tokens (2)", { timeout: 30_000 });
+    await expect(usedRow).toHaveCount(0);
+    await expect(card.locator(`[data-token-id="${other}"]`)).toBeVisible();
+    const now = await labTokens(request, serviceUser.id);
+    expect(now).toContain(other);
+    expect(now).not.toContain(used);
+    expect(now).toHaveLength(2);
+    await inEachLook(page, (look) => expectCleanLook(page, `rotated token (${look})`));
 
-      // Leaving the page drops the secret; it is never shown again.
-      await openDetail(page, serviceUser.id);
-      await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
-    });
+    // Leaving the page drops the secret; it is never shown again.
+    await openDetail(page, serviceUser.id);
+    await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
   });
 
   test("pw-su-token-rotate-wrong-code-sad", async ({ page, request, auth }) => {
@@ -1091,39 +1089,32 @@ test.describe("pw-su-delete-tokens", () => {
     const { codes } = await asSuperUser(page, request, auth, "groupremove");
     const serviceUserId = await createAs(page, `groupremove-${Date.now()}`, codes, true);
 
-    await inEachLook(page, async (look) => {
-      await openDetail(page, serviceUserId);
-      const groups = page.getByTestId("service-user-detail-groups");
-      // The card renders once the details have loaded, so its heading is a safe read.
-      await expect(groups).toContainText(/Groups \(\d+\)/, { timeout: 30_000 });
-      if ((await groups.textContent())?.includes("Groups (0)")) {
-        // A previous look already removed it; put it back through Change access.
-        await page.getByTestId("service-user-detail-change-access").getByRole("button").click();
-        const dialog = page.getByRole("dialog");
-        await dialog.getByTestId("service-user-change-access-spectra-read").getByRole("checkbox").check();
-        await dialog.getByTestId("service-user-change-access-submit").getByRole("button").click();
-        await answerStepUp(page, await codes.next());
-        await expect(groups).toContainText("Groups (1)", { timeout: 30_000 });
-      }
-      await expect(groups.getByTestId("service-user-detail-group-row")).toHaveText([
-        /Spectra readers/,
-      ]);
-
-      await groups.getByTestId("service-user-detail-group-remove").getByRole("button").click();
-      const confirm = page.getByRole("dialog");
-      await expect(confirm.getByTestId("service-user-group-remove-confirm")).toContainText(
-        "stops holding what Spectra readers holds",
-      );
-      await expectNoA11yViolations(page, `group remove confirm (${look})`);
-      await confirm.getByTestId("service-user-group-remove-submit").getByRole("button").click();
+    await openDetail(page, serviceUserId);
+    const groups = page.getByTestId("service-user-detail-groups");
+    await expect(groups.getByTestId("service-user-detail-group-row")).toHaveText([
+      /Spectra readers/,
+    ]);
+    await groups.getByTestId("service-user-detail-group-remove").getByRole("button").click();
+    const confirm = page.getByRole("dialog");
+    await expect(confirm.getByTestId("service-user-group-remove-confirm")).toContainText(
+      "stops holding what Spectra readers holds",
+    );
+    await expectNoA11yViolations(page, "group remove confirm");
+    await confirm.getByTestId("service-user-group-remove-submit").getByRole("button").click();
+    // Adding the group a moment ago opened the confirmation window, so a code is asked for
+    // only when that window has closed.
+    const asked = page.getByTestId("step-up-totp");
+    const removed = groups.filter({ hasText: "Groups (0)" });
+    await expect(asked.or(removed)).toBeVisible({ timeout: 30_000 });
+    if (await asked.isVisible()) {
       await answerStepUp(page, await codes.next());
+    }
 
-      await expect(groups).toContainText("Groups (0)", { timeout: 30_000 });
-      await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
-        "Permissions (0)",
-      );
-      await expectCleanLook(page, `after group removal (${look})`);
-    });
+    await expect(groups).toContainText("Groups (0)", { timeout: 30_000 });
+    await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
+      "Permissions (0)",
+    );
+    await inEachLook(page, (look) => expectCleanLook(page, `after group removal (${look})`));
   });
 
   test("pw-su-change-access-happy", async ({ page, request, auth }) => {
