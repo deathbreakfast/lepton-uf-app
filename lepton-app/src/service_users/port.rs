@@ -350,6 +350,9 @@ pub trait ServiceUserAccessBackend: Send + Sync {
     /// Replace the token `public_id` of `service_user` with a new one that carries the
     /// same access and lasts the same time. The old token stops working now.
     ///
+    /// Mint the new token before revoking the old one, or do both in one transaction, so a
+    /// failed mint never leaves the service user without a working token.
+    ///
     /// The default refuses with [`ServiceUserAccessError::NotConfigured`].
     ///
     /// # Errors

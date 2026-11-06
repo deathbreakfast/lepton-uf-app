@@ -379,11 +379,22 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
             .list(service_user.as_str())?
             .into_iter()
             .find(|t| t.public_id == public_id);
-        // Revoking first reports a missing or foreign token the way Revoke does.
+        // The lab approximates a real rotation: it revokes first, which reports a missing or
+        // foreign token the way Revoke does, and a failed mint would leave no token. A real
+        // host mints first or does both atomically. Lab tokens record no scopes, so the
+        // replacement carries none; it keeps the label and, when it was 30 or 90 days, the
+        // lifetime.
         self.tokens.revoke(service_user.as_str(), public_id)?;
+        let ttl = old
+            .as_ref()
+            .and_then(|t| {
+                let day = |d: &str| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok();
+                let days = (day(&t.expires_on)? - day(&t.created_on)?).num_days();
+                TokenTtl::from_days_str(&days.to_string())
+            })
+            .unwrap_or_default();
         let label = old.map(|t| t.label).unwrap_or_default();
-        self.mint_token(v, service_user, &label, TokenTtl::default(), &[])
-            .await
+        self.mint_token(v, service_user, &label, ttl, &[]).await
     }
 
     async fn current_access(

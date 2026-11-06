@@ -828,7 +828,7 @@ fn TokensCard(
     view! {
         {move || error.get().map(|e| view! {
             <div data-testid="service-user-detail-token-error">
-                <MessageBar intent=MessageBarIntent::Error>{e}</MessageBar>
+                <MessageBar intent=MessageBarIntent::Error>{revoke_error(&e)}</MessageBar>
             </div>
         })}
         <ListCard
@@ -878,13 +878,6 @@ fn TokenRow(
     let title = format!("Revoke “{label}”?");
     let rotate_title = format!("Rotate “{label}”?");
     let done_text = format!("Token “{label}” revoked");
-    // `spawn_with_fresh_code` reports the raw server message; the card shows a sentence.
-    let rotate_error = RwSignal::new(None::<String>);
-    Effect::new(move |_| {
-        if let Some(raw) = rotate_error.get() {
-            error.set(Some(revoke_error(&raw).to_string()));
-        }
-    });
     let rotate = {
         let (service_user_id, public_id) = (service_user_id.clone(), public_id.clone());
         move |_| {
@@ -893,9 +886,8 @@ fn TokenRow(
             let (id, public_id, handle) =
                 (service_user_id.clone(), public_id.clone(), handle.clone());
             // Rotating needs a fresh authenticator code; the dialog collects it.
-            rotate_error.set(None);
             spawn_with_fresh_code(
-                rotate_error,
+                error,
                 Callback::new(move |token: MintedTokenView| {
                     revealed.set(Some((handle.clone(), token)));
                     on_changed.run(());
@@ -931,7 +923,7 @@ fn TokenRow(
                         }
                         on_changed.run(());
                     }
-                    Err(e) => error.set(Some(revoke_error(&e.to_string()).to_string())),
+                    Err(e) => error.set(Some(e.to_string())),
                 }
             });
         }
