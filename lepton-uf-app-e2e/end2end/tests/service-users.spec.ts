@@ -179,7 +179,10 @@ test.describe("pw-lepton-service-users", () => {
     const serviceUserId = await serviceUserIdFromList(page, handle);
     const check = await serviceUserLab(request, { action: "in_readers", service_user_id: serviceUserId });
     expect(check.member).toBe(true);
-    // The list marks the handle as a service user, not a person.
+    // The list marks the handle as a service user, not a person. The lookup
+    // above ends on the token page, so go back to the list first.
+    await page.goto("/user/service-users");
+    await waitForAppReady(page);
     await expect(
       page.getByTestId(`service-user-card-${handle}`).getByTestId("service-user-badge"),
     ).toHaveText("Service user");
