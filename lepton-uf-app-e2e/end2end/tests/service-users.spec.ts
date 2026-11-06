@@ -95,6 +95,7 @@ test.describe("pw-lepton-service-users", () => {
     const [seeded] = await seedServiceUsers(request, email, "linked", 1);
     await openServiceUsers(page);
     const card = page.getByTestId(`service-user-card-${seeded.handle}`);
+    await expect(card).toBeVisible({ timeout: 60_000 });
     await card.getByRole("link", { name: `@${seeded.handle}` }).click();
     await expect(page).toHaveURL(new RegExp(`/user/service-users/${seeded.id}$`), {
       timeout: 30_000,
