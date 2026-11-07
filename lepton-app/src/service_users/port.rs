@@ -347,6 +347,67 @@ pub trait ServiceUserAccessBackend: Send + Sync {
         Err(ServiceUserAccessError::NotConfigured)
     }
 
+    /// Replace the token `public_id` of `service_user` with a new one that carries the
+    /// same access and lasts the same time. The old token stops working now.
+    ///
+    /// Mint the new token before revoking the old one, or do both in one transaction, so a
+    /// failed mint never leaves the service user without a working token.
+    ///
+    /// The default refuses with [`ServiceUserAccessError::NotConfigured`].
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::Forbidden`] when the token belongs to another
+    /// service user, [`ServiceUserAccessError::TokenNotFound`] when it doesn't
+    /// exist, [`ServiceUserAccessError::ServiceUserSuspended`] when the service user
+    /// is paused, [`ServiceUserAccessError::Store`] otherwise.
+    async fn rotate_token(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        public_id: &str,
+    ) -> Result<MintedToken, ServiceUserAccessError> {
+        let _ = (v, service_user, public_id);
+        Err(ServiceUserAccessError::NotConfigured)
+    }
+
+    /// Keys of the [`choices`](Self::choices) the service user holds today, for the
+    /// detail page's Change access card and for the setup commands after a rotation.
+    ///
+    /// Read them under `v`. The default holds none.
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::ServiceUserNotFound`] or
+    /// [`ServiceUserAccessError::Store`].
+    async fn current_access(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+    ) -> Result<Vec<&'static str>, ServiceUserAccessError> {
+        let _ = (v, service_user);
+        Ok(Vec::new())
+    }
+
+    /// Remove `service_user` from `group_id`. It stops holding what the group holds.
+    ///
+    /// The default refuses with [`ServiceUserAccessError::NotConfigured`].
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceUserAccessError::Forbidden`] when the caller may not change the
+    /// group, [`ServiceUserAccessError::ServiceUserNotFound`] when the caller can't
+    /// see the service user, [`ServiceUserAccessError::Store`] otherwise.
+    async fn revoke_group(
+        &self,
+        v: &Valence,
+        service_user: &ServiceUserId,
+        group_id: &str,
+    ) -> Result<(), ServiceUserAccessError> {
+        let _ = (v, service_user, group_id);
+        Err(ServiceUserAccessError::NotConfigured)
+    }
+
     /// Where the signed-in person can request access to `group_name`, or on
     /// behalf of the service user `for_handle`.
     ///
@@ -519,44 +580,45 @@ mod tests {
         );
     }
 
+    struct NoUi;
+    #[async_trait::async_trait]
+    impl ServiceUserAccessBackend for NoUi {
+        fn choices(&self) -> &'static [ServiceUserAccessChoice] {
+            CHOICES
+        }
+        async fn can_grant_group(
+            &self,
+            _: &Valence,
+            _: &str,
+        ) -> Result<bool, ServiceUserAccessError> {
+            Ok(false)
+        }
+        async fn grant_group(
+            &self,
+            _: &Valence,
+            _: &ServiceUserId,
+            _: &'static str,
+            _: &'static str,
+        ) -> Result<(), ServiceUserAccessError> {
+            Ok(())
+        }
+        async fn mint_token(
+            &self,
+            _: &Valence,
+            _: &ServiceUserId,
+            _: &str,
+            _: TokenTtl,
+            _: &[&'static str],
+        ) -> Result<MintedToken, ServiceUserAccessError> {
+            Err(ServiceUserAccessError::NotConfigured)
+        }
+        fn client_setup(&self, _: &str, _: &[ServiceUserAccessChoice]) -> Vec<ClientSetupStep> {
+            Vec::new()
+        }
+    }
+
     #[test]
     fn request_access_url_defaults_to_none() {
-        struct NoUi;
-        #[async_trait::async_trait]
-        impl ServiceUserAccessBackend for NoUi {
-            fn choices(&self) -> &'static [ServiceUserAccessChoice] {
-                CHOICES
-            }
-            async fn can_grant_group(
-                &self,
-                _: &Valence,
-                _: &str,
-            ) -> Result<bool, ServiceUserAccessError> {
-                Ok(false)
-            }
-            async fn grant_group(
-                &self,
-                _: &Valence,
-                _: &ServiceUserId,
-                _: &'static str,
-                _: &'static str,
-            ) -> Result<(), ServiceUserAccessError> {
-                Ok(())
-            }
-            async fn mint_token(
-                &self,
-                _: &Valence,
-                _: &ServiceUserId,
-                _: &str,
-                _: TokenTtl,
-                _: &[&'static str],
-            ) -> Result<MintedToken, ServiceUserAccessError> {
-                Err(ServiceUserAccessError::NotConfigured)
-            }
-            fn client_setup(&self, _: &str, _: &[ServiceUserAccessChoice]) -> Vec<ClientSetupStep> {
-                Vec::new()
-            }
-        }
         assert_eq!(NoUi.request_access_url("Any", Some("x")), None);
     }
 

@@ -998,4 +998,194 @@ test.describe("pw-su-delete-tokens", () => {
     expect(await crossed.text()).toContain("reason_class=forbidden");
     expect(await labTokens(request, theirs.id)).toEqual([theirToken]);
   });
+
+  /** Creates a service user as `asSuperUser` and returns its id, in the given access. */
+  async function createAs(
+    page: Page,
+    handle: string,
+    codes: FreshCodes,
+    withReaders: boolean,
+  ): Promise<string> {
+    await openServiceUsers(page, "/user/service-users/new");
+    await fillProfile(page, "Detail agent", handle, "Detail tests");
+    await page.getByTestId("service-user-create-submit").getByRole("button").click();
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 2 of 3", {
+      timeout: 30_000,
+    });
+    if (withReaders) {
+      await page.getByTestId("service-user-access-spectra-read").getByRole("checkbox").check();
+      await page.getByTestId("service-user-access-continue").getByRole("button").click();
+      await answerStepUp(page, await codes.next());
+    } else {
+      await page.getByTestId("service-user-access-skip").getByRole("button").click();
+    }
+    await expect(page.getByTestId("service-user-create-progress")).toContainText("Step 3 of 3", {
+      timeout: 30_000,
+    });
+    return serviceUserIdFromList(page, handle);
+  }
+
+  test("pw-su-token-rotate-happy", async ({ page, request, auth }) => {
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "rotate");
+    const [serviceUser] = await seedServiceUsers(request, email, `rotate${Date.now()}`, 1);
+    const [used, other] = await seedTokens(request, serviceUser.id, 2);
+
+    await openDetail(page, serviceUser.id);
+    const card = page.getByTestId("service-user-detail-tokens");
+    const usedRow = card.locator(`[data-token-id="${used}"]`);
+    await expect(page.getByTestId("service-user-detail-meta")).toContainText("Owned by you");
+    await expect(page.getByTestId("service-user-detail-meta")).toContainText("Last used");
+
+    await usedRow.getByTestId("service-user-detail-token-rotate").getByRole("button").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByTestId("service-user-token-rotate-confirm")).toContainText(
+      "old token stops working",
+    );
+    await expectNoA11yViolations(page, "rotate confirm");
+    await dialog.getByTestId("service-user-token-rotate-submit").getByRole("button").click();
+    await answerStepUp(page, await codes.next());
+
+    // The new secret shows once, and the old token is gone from the list.
+    const reveal = page.getByTestId("service-user-token-reveal");
+    await expect(reveal).toBeVisible({ timeout: 30_000 });
+    await expect(reveal.getByTestId("service-user-token-secret")).toContainText("labtk_");
+    await expect(card).toContainText("Tokens (2)", { timeout: 30_000 });
+    await expect(usedRow).toHaveCount(0);
+    await expect(card.locator(`[data-token-id="${other}"]`)).toBeVisible();
+    const now = await labTokens(request, serviceUser.id);
+    expect(now).toContain(other);
+    expect(now).not.toContain(used);
+    expect(now).toHaveLength(2);
+    await page.setViewportSize(DESKTOP);
+    await expectCleanLook(page, "rotated token (desktop-light)");
+    await page.setViewportSize(PHONE);
+    await expectCleanLook(page, "rotated token (phone)");
+
+    // Dark mode leaves the page, and coming back drops the secret; it is never shown again.
+    await page.setViewportSize(DESKTOP);
+    await useDarkMode(page);
+    await openDetail(page, serviceUser.id);
+    await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
+    await expectCleanLook(page, "rotated token list (desktop-dark)");
+  });
+
+  test("pw-su-token-rotate-wrong-code-sad", async ({ page, request, auth }) => {
+    const { email } = await asCreatorWithTotp(page, request, auth, "rotatebad");
+    const [serviceUser] = await seedServiceUsers(request, email, `rotatebad${Date.now()}`, 1);
+    const [token] = await seedTokens(request, serviceUser.id, 1);
+
+    await openDetail(page, serviceUser.id);
+    await page
+      .getByTestId("service-user-detail-tokens")
+      .locator(`[data-token-id="${token}"]`)
+      .getByTestId("service-user-detail-token-rotate")
+      .getByRole("button")
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByTestId("service-user-token-rotate-submit")
+      .getByRole("button")
+      .click();
+    await answerStepUp(page, "000000");
+    await expect(page.getByTestId("service-user-token-reveal")).toHaveCount(0);
+    expect(await labTokens(request, serviceUser.id)).toEqual([token]);
+  });
+
+  test("pw-su-group-remove-happy", async ({ page, request, auth }) => {
+    const { codes } = await asSuperUser(page, request, auth, "groupremove");
+    const serviceUserId = await createAs(page, `groupremove-${Date.now()}`, codes, true);
+
+    await openDetail(page, serviceUserId);
+    const groups = page.getByTestId("service-user-detail-groups");
+    await expect(groups.getByTestId("service-user-detail-group-row")).toHaveText([
+      /Spectra readers/,
+    ]);
+    await groups.getByTestId("service-user-detail-group-remove").getByRole("button").click();
+    const confirm = page.getByRole("dialog");
+    await expect(confirm.getByTestId("service-user-group-remove-confirm")).toContainText(
+      "stops holding what Spectra readers holds",
+    );
+    await expectNoA11yViolations(page, "group remove confirm");
+    await confirm.getByTestId("service-user-group-remove-submit").getByRole("button").click();
+    // Adding the group a moment ago opened the confirmation window, so a code is asked for
+    // only when that window has closed.
+    const asked = page.getByTestId("step-up-totp");
+    const removed = groups.filter({ hasText: "Groups (0)" });
+    await expect(asked.or(removed)).toBeVisible({ timeout: 30_000 });
+    if (await asked.isVisible()) {
+      await answerStepUp(page, await codes.next());
+    }
+
+    await expect(groups).toContainText("Groups (0)", { timeout: 30_000 });
+    await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
+      "Permissions (0)",
+    );
+    await page.setViewportSize(DESKTOP);
+    await expectCleanLook(page, "after group removal (desktop-light)");
+    await page.setViewportSize(PHONE);
+    await expectCleanLook(page, "after group removal (phone)");
+    // Dark mode leaves the page, so open it again.
+    await page.setViewportSize(DESKTOP);
+    await useDarkMode(page);
+    await openDetail(page, serviceUserId);
+    await expectCleanLook(page, "after group removal (desktop-dark)");
+  });
+
+  test("pw-su-change-access-happy", async ({ page, request, auth }) => {
+    const { codes } = await asSuperUser(page, request, auth, "changeaccess");
+    const serviceUserId = await createAs(page, `changeaccess-${Date.now()}`, codes, false);
+
+    await openDetail(page, serviceUserId);
+    const groups = page.getByTestId("service-user-detail-groups");
+    await expect(groups).toContainText("Groups (0)");
+    await page.getByTestId("service-user-detail-change-access").getByRole("button").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByTestId("service-user-change-access-spectra-read")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expectNoA11yViolations(page, "change access dialog");
+    await dialog.getByTestId("service-user-change-access-spectra-read").getByRole("checkbox").check();
+    await dialog.getByTestId("service-user-change-access-submit").getByRole("button").click();
+    await answerStepUp(page, await codes.next());
+
+    await expect(groups).toContainText("Groups (1)", { timeout: 30_000 });
+    await expect(page.getByTestId("service-user-detail-permissions")).toContainText(
+      "lab.spectra.query",
+    );
+
+    // What it already holds is listed as held, with nothing left to add.
+    await page.getByTestId("service-user-detail-change-access").getByRole("button").click();
+    const again = page.getByRole("dialog");
+    await expect(again.getByTestId("service-user-change-access-held-spectra-read")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(again.getByTestId("service-user-change-access-none")).toBeVisible();
+    await expect(again.getByTestId("service-user-change-access-submit").getByRole("button")).toBeDisabled();
+  });
+
+  test("pw-su-group-remove-refused-sad", async ({ page, request, auth }) => {
+    const { email, codes } = await asCreatorWithTotp(page, request, auth, "groupkeep");
+    const [serviceUser] = await seedServiceUsers(request, email, `groupkeep${Date.now()}`, 1);
+    await serviceUserLab(request, {
+      action: "seed_memberships",
+      service_user_id: serviceUser.id,
+      groups: 1,
+      permissions: 1,
+    });
+
+    await openDetail(page, serviceUser.id);
+    const groups = page.getByTestId("service-user-detail-groups");
+    await groups.getByTestId("service-user-detail-group-remove").getByRole("button").click();
+    await page
+      .getByRole("dialog")
+      .getByTestId("service-user-group-remove-submit")
+      .getByRole("button")
+      .click();
+    await answerStepUp(page, await codes.next());
+    // A creator who doesn't own the group can't take a service user out of it.
+    await expect(page.getByTestId("service-user-detail-group-error")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(groups).toContainText("Groups (1)");
+  });
 });
