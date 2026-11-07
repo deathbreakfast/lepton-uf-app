@@ -13,7 +13,7 @@ use crate::paths;
 ///
 /// Stays false while loading and when the status call fails, so the page behaves as it
 /// did before and the step-up dialog is still the backstop.
-pub(super) fn use_authenticator_missing() -> Signal<bool> {
+pub fn use_authenticator_missing() -> Signal<bool> {
     let status = Resource::new(|| (), |()| async { get_totp_settings_status().await });
     Signal::derive(move || matches!(status.get(), Some(Ok(s)) if !s.totp_enabled))
 }

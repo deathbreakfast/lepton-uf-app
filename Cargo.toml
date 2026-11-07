@@ -117,6 +117,8 @@ orbital-base-components = { git = "https://github.com/unified-field-dev/orbital"
 orbital-primitives = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-theme = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-datatable = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-data = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 
 valence = { package = "uf-valence", git = "https://github.com/unified-field-dev/valence", branch = "main", default-features = false, features = ["mem", "sqlite"] }
 valence-codegen = { package = "uf-valence-codegen", git = "https://github.com/unified-field-dev/valence", branch = "main" }

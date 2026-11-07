@@ -1,99 +1,302 @@
-//! Sign-in providers card: Google and GitHub client ids and secrets.
+//! Sign-in providers card: a table of Google and GitHub with their client ids
+//! and whether each client secret is set.
 
-use lepton_auth::delivery_settings::{OAuthCandidate, OAuthSettingsView, WriteOnlySecret};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use lepton_auth::delivery_settings::{OAuthCandidate, OAuthSettingsView, SecretStatus};
 use leptos::prelude::*;
-use uf_product::components::Subtitle2;
+use orbital_data::{DataRecord, DataValue};
+use orbital_datatable::{
+    DataTable, DataTableColumnDef, DataTableEvents, DataTableFeatures, DataTableRowModel,
+    DataTableSource, ListViewConfig, PagingMode,
+};
+use uf_product::components::{Caption1, Subtitle2};
 use uf_product::primitives::*;
+use uf_product::AdaptiveSheet;
 
-use super::secret_field::SecretField;
-use super::server::save_oauth_settings;
-use super::step_up::spawn_with_fresh_code;
-use super::{friendly_error, Outcome};
+use super::changes::secret_status_text;
+use super::email::typed;
+use super::Outcome;
+
+/// One row of the providers table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Provider {
+    Google,
+    GitHub,
+}
+
+impl Provider {
+    fn id(self) -> &'static str {
+        match self {
+            Self::Google => "google",
+            Self::GitHub => "github",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Google => "Google",
+            Self::GitHub => "GitHub",
+        }
+    }
+
+    fn from_id(id: &str) -> Self {
+        if id == "github" {
+            Self::GitHub
+        } else {
+            Self::Google
+        }
+    }
+}
+
+/// The providers section's form values. The page owns them so one Save covers every card.
+#[derive(Clone, Copy)]
+pub struct OAuthForm {
+    google_id: RwSignal<String>,
+    github_id: RwSignal<String>,
+    google_secret: RwSignal<String>,
+    github_secret: RwSignal<String>,
+}
+
+impl OAuthForm {
+    /// Form filled from loaded values.
+    pub fn new(base: &OAuthCandidate) -> Self {
+        Self {
+            google_id: RwSignal::new(base.google_client_id.clone()),
+            github_id: RwSignal::new(base.github_client_id.clone()),
+            google_secret: RwSignal::new(String::new()),
+            github_secret: RwSignal::new(String::new()),
+        }
+    }
+
+    /// What the form holds now.
+    pub fn candidate(&self) -> OAuthCandidate {
+        OAuthCandidate {
+            google_client_id: self.google_id.get_untracked(),
+            github_client_id: self.github_id.get_untracked(),
+            google_client_secret: typed(self.google_secret),
+            github_client_secret: typed(self.github_secret),
+        }
+    }
+
+    fn signals(&self, p: Provider) -> (RwSignal<String>, RwSignal<String>) {
+        match p {
+            Provider::Google => (self.google_id, self.google_secret),
+            Provider::GitHub => (self.github_id, self.github_secret),
+        }
+    }
+}
+
+/// Table record for one provider. Holds only public ids and set/not set text.
+fn record(p: Provider, client_id: &str, status: &SecretStatus, pending: bool) -> DataRecord {
+    let shown_id = if client_id.trim().is_empty() {
+        "Not set up".to_string()
+    } else {
+        client_id.to_string()
+    };
+    let action = if status.is_set || !client_id.trim().is_empty() {
+        "Replace"
+    } else {
+        "Set up"
+    };
+    DataRecord::new(
+        p.id(),
+        HashMap::from([
+            ("provider".into(), DataValue::Text(p.name().into())),
+            ("client_id".into(), DataValue::Text(shown_id)),
+            (
+                "secret".into(),
+                DataValue::Text(secret_status_text(status, pending)),
+            ),
+            ("action".into(), DataValue::Text(action.into())),
+        ]),
+    )
+}
 
 /// OAuth provider settings card.
 #[component]
 pub fn OAuthCard(
-    /// Current settings.
+    /// Current settings, for the secret status column.
     view: OAuthSettingsView,
-    /// Bumped after a successful save so the page reloads.
-    reload: RwSignal<u32>,
+    /// Form values.
+    form: OAuthForm,
     /// Result line; owned by the page so it survives the reload after a save.
     outcome: RwSignal<Option<Outcome>>,
 ) -> impl IntoView {
-    let google_id = RwSignal::new(view.google.client_id.clone());
-    let github_id = RwSignal::new(view.github.client_id.clone());
-    let google_secret = RwSignal::new(String::new());
-    let github_secret = RwSignal::new(String::new());
-    let error = RwSignal::new(None::<String>);
+    let statuses = StoredValue::new(view);
+    let narrow = use_breakpoint_down(Breakpoint::Md);
+    let build_rows = move || {
+        statuses.with_value(|v| {
+            [(Provider::Google, &v.google), (Provider::GitHub, &v.github)]
+                .into_iter()
+                .map(|(p, row)| {
+                    let (id, secret) = form.signals(p);
+                    let pending = !secret.with(|s| s.trim().is_empty());
+                    DataTableRowModel::new(id.with(|id| record(p, id, &row.secret, pending)))
+                })
+                .collect::<Vec<_>>()
+        })
+    };
+    let rows = RwSignal::new(build_rows());
+    Effect::new(move |_| rows.set(build_rows()));
 
-    Effect::new(move |_| {
-        if let Some(message) = error.get() {
-            outcome.set(Some(Outcome::Failed(friendly_error(&message))));
-        }
+    let open = RwSignal::new(false);
+    let editing = RwSignal::new(Provider::Google);
+    let draft_id = RwSignal::new(String::new());
+    let draft_secret = RwSignal::new(String::new());
+    let open_for = Callback::new(move |id: String| {
+        let p = Provider::from_id(&id);
+        editing.set(p);
+        draft_id.set(form.signals(p).0.get_untracked());
+        draft_secret.set(String::new());
+        open.set(true);
     });
-
-    let candidate = move || {
-        let typed = |s: RwSignal<String>| {
-            let v = s.get_untracked();
-            (!v.trim().is_empty()).then(|| WriteOnlySecret::new(v))
-        };
-        OAuthCandidate {
-            google_client_id: google_id.get_untracked(),
-            github_client_id: github_id.get_untracked(),
-            google_client_secret: typed(google_secret),
-            github_client_secret: typed(github_secret),
+    let apply = move |_: leptos::ev::MouseEvent| {
+        let (id, secret) = form.signals(editing.get_untracked());
+        id.set(draft_id.get_untracked().trim().to_string());
+        let typed = draft_secret.get_untracked();
+        if !typed.trim().is_empty() {
+            secret.set(typed);
         }
+        draft_secret.set(String::new());
+        open.set(false);
+    };
+    let cancel = move |_: leptos::ev::MouseEvent| {
+        draft_secret.set(String::new());
+        open.set(false);
     };
 
-    let save = move |_: leptos::ev::MouseEvent| {
-        outcome.set(None);
-        let c = candidate();
-        spawn_with_fresh_code(
-            error,
-            Callback::new(move |()| {
-                google_secret.set(String::new());
-                github_secret.set(String::new());
-                outcome.set(Some(Outcome::Done(
-                    "Sign-in provider settings saved.".to_string(),
-                )));
-                reload.update(|n| *n += 1);
-            }),
-            move |code| {
-                let c = c.clone();
-                async move { save_oauth_settings(c, code).await }
-            },
-        );
+    let columns = move || {
+        let action_view = Arc::new(move |record: DataRecord| {
+            let label = record
+                .get("action")
+                .map(DataValue::display_string)
+                .unwrap_or_default();
+            let id = record.id.clone();
+            let test_id = format!("delivery-oauth-{id}-edit");
+            view! {
+                <div data-testid=test_id>
+                    <Button
+                        appearance=ButtonAppearance::Secondary
+                        on_click=Callback::new(move |_| open_for.run(id.clone()))
+                    >
+                        {label}
+                    </Button>
+                </div>
+            }
+            .into_any()
+        });
+        vec![
+            DataTableColumnDef::new("provider", "Provider"),
+            DataTableColumnDef::new("client_id", "Client ID"),
+            DataTableColumnDef::new("secret", "Secret"),
+            DataTableColumnDef::new("action", "").with_cell_view(action_view),
+        ]
     };
 
     view! {
         <Card>
             <CardHeader>
-                <Subtitle2>"Sign-in providers"</Subtitle2>
+                <Subtitle2>"Sign-in providers (OAuth)"</Subtitle2>
             </CardHeader>
             <CardContent>
                 <div data-testid="delivery-oauth-card">
                     <Flex vertical=true gap=FlexGap::Medium>
-                        <Field label="Google client ID">
-                            <div data-testid="delivery-oauth-google-id">
-                                <Input bind=google_id />
-                            </div>
-                        </Field>
-                        <SecretField label="Google client secret" status=view.google.secret.clone() value=google_secret test_id="delivery-oauth-google-secret" />
-                        <Field label="GitHub client ID">
-                            <div data-testid="delivery-oauth-github-id">
-                                <Input bind=github_id />
-                            </div>
-                        </Field>
-                        <SecretField label="GitHub client secret" status=view.github.secret.clone() value=github_secret test_id="delivery-oauth-github-secret" />
+                        {move || {
+                            let features = if narrow.get() {
+                                DataTableFeatures::LIST_VIEW
+                            } else {
+                                DataTableFeatures::empty()
+                            };
+                            view! {
+                                <DataTable
+                                    data_source=DataTableSource::Client(rows)
+                                    paging=PagingMode::None
+                                    features=features
+                                    list_view=ListViewConfig::new("provider")
+                                        .with_secondary_fields(vec!["client_id".into(), "secret".into()])
+                                    columns=columns()
+                                    sortable=false
+                                    events=DataTableEvents {
+                                        on_row_click: Some(Callback::new(move |(id,): (String,)| open_for.run(id))),
+                                        ..Default::default()
+                                    }
+                                />
+                            }
+                        }}
+                        <Show when=move || narrow.get()>
+                            <Caption1>"Tap a provider to set its client ID and secret."</Caption1>
+                        </Show>
                         {move || outcome.get().map(|o| o.into_message_bar("delivery-oauth-outcome"))}
                     </Flex>
                 </div>
             </CardContent>
-            <CardFooter>
-                <div data-testid="delivery-oauth-save">
-                    <Button appearance=ButtonAppearance::Primary on_click=Callback::new(save)>"Save sign-in providers"</Button>
-                </div>
-            </CardFooter>
         </Card>
+        <AdaptiveSheet
+            open=open
+            title=move || format!("{} sign-in", editing.get().name())
+            testid="delivery-oauth-dialog"
+            size=DrawerSize::Small
+            actions=move || view! {
+                <Button appearance=ButtonAppearance::Secondary on_click=Callback::new(cancel)>
+                    "Cancel"
+                </Button>
+                <div data-testid="delivery-oauth-dialog-apply">
+                    <Button appearance=ButtonAppearance::Primary on_click=Callback::new(apply)>
+                        "Set"
+                    </Button>
+                </div>
+            }
+        >
+            <Flex vertical=true gap=FlexGap::Medium>
+                <Field label="Client ID">
+                    <div data-testid="delivery-oauth-client-id">
+                        <Input bind=draft_id />
+                    </div>
+                </Field>
+                <Field label="Client secret">
+                    <div data-testid="delivery-oauth-client-secret">
+                        <Input
+                            bind=draft_secret
+                            appearance=InputAppearance {
+                                input_type: Signal::from(InputType::Password),
+                                placeholder: "Leave empty to keep the current secret".into(),
+                                ..Default::default()
+                            }
+                        />
+                    </div>
+                </Field>
+                <Caption1>"Stored in Neutrino. The value is never shown again. Clear the client ID to turn the provider off."</Caption1>
+            </Flex>
+        </AdaptiveSheet>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn records_hold_no_secret_value_and_name_the_next_step() {
+        let r = record(Provider::GitHub, "", &SecretStatus::default(), false);
+        assert_eq!(
+            r.get("action").map(DataValue::display_string).as_deref(),
+            Some("Set up")
+        );
+        assert_eq!(
+            r.get("secret").map(DataValue::display_string).as_deref(),
+            Some("Not set")
+        );
+        let r = record(
+            Provider::Google,
+            "1234-abcd.apps",
+            &SecretStatus::default(),
+            true,
+        );
+        assert_eq!(
+            r.get("secret").map(DataValue::display_string).as_deref(),
+            Some("New value ready to save")
+        );
     }
 }

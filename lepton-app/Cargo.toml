@@ -41,6 +41,8 @@ orbital-base-components = { workspace = true }
 orbital-theme = { workspace = true, default-features = false }
 orbital-macros = { workspace = true }
 orbital-primitives = { workspace = true, default-features = false }
+orbital-datatable = { workspace = true, default-features = false }
+orbital-data = { workspace = true }
 
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
@@ -67,6 +69,7 @@ hydrate = [
     "lepton-shell/hydrate",
     "orbital-theme/hydrate",
     "orbital-primitives/hydrate",
+    "orbital-datatable/hydrate",
     "meson-leptos/hydrate"]
 ssr = [
     "leptos/ssr",
@@ -81,6 +84,7 @@ ssr = [
     "dep:tracing",
     "meson-leptos/ssr",
     "orbital-primitives/ssr",
+    "orbital-datatable/ssr",
     "higgs/ssr",
     "uf-product/ssr",
     "uf-search-core/ssr",

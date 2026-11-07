@@ -39,6 +39,7 @@ pub use detail::{
 };
 pub use error::friendly_error;
 pub use list_page::{ServiceUserBadge, ServiceUsersPage};
+pub(crate) use needs_authenticator::use_authenticator_missing;
 #[cfg(feature = "ssr")]
 pub use port::{
     provide_service_user_access_backend, use_service_user_access_backend, MintedToken,
