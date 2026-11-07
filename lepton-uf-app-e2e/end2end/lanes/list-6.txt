@@ -9,5 +9,7 @@ delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery
 delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery-settings-denied-sad
 delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery-settings-test-send-failed-sad
 delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery-settings-stepup-sad
+delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery-settings-no-2fa-sad
+delivery_settings.spec.ts › pw-lepton-delivery-settings › pw-lepton-delivery-settings-phone-dark
 service-users.spec.ts › pw-lepton-service-users › pw-lepton-service-users-access-not-grantable-sad
 service-users.spec.ts › pw-su-delete-tokens › pw-su-token-revoke-happy
