@@ -372,8 +372,9 @@ pub use appearance::AppearancePage;
 pub use confirm_account::ConfirmAccountPage;
 pub use connected_accounts_section::ConnectedAccountsSection;
 pub use delivery_settings::{
-    get_delivery_settings, rotate_totp_seal_key, save_email_settings, save_oauth_settings,
-    save_sms_settings, test_send_email, test_send_sms, DeliverySettingsPage,
+    get_delivery_settings, rotate_totp_seal_key, save_delivery_settings, save_email_settings,
+    save_oauth_settings, save_sms_settings, test_send_email, test_send_sms, DeliveryChanges,
+    DeliverySaveReport, DeliverySettingsPage, SectionOutcome,
 };
 pub use devices_section::SecurityDevicesSection;
 pub use layout::UserLayout;

@@ -17,15 +17,16 @@ fn request() -> StepUpRequest {
 
 /// Open the step-up dialog, then call `action` with the code the operator typed.
 ///
-/// `on_ok` runs after a successful call; `error` receives the server's message
-/// when the call fails after the dialog closed.
-pub fn spawn_with_fresh_code<F, Fut>(
+/// `on_ok` receives what a successful call returned; `error` receives the
+/// server's message when the call fails after the dialog closed.
+pub fn spawn_with_fresh_code<T, F, Fut>(
     error: RwSignal<Option<String>>,
-    on_ok: Callback<()>,
+    on_ok: Callback<T>,
     action: F,
 ) where
+    T: Send + Sync + 'static,
     F: Fn(String) -> Fut + Clone + Send + Sync + 'static,
-    Fut: std::future::Future<Output = Result<(), ServerFnError>> + 'static,
+    Fut: std::future::Future<Output = Result<T, ServerFnError>> + 'static,
 {
     let Some(ctrl) = use_step_up_controller() else {
         error.set(Some(
@@ -40,9 +41,9 @@ pub fn spawn_with_fresh_code<F, Fut>(
             let action = action.clone();
             spawn_local_scoped(async move {
                 match action(factors.totp_code).await {
-                    Ok(()) => {
+                    Ok(value) => {
                         ctrl.complete_success();
-                        on_ok.run(());
+                        on_ok.run(value);
                     }
                     Err(e) => {
                         let message = e.to_string();
