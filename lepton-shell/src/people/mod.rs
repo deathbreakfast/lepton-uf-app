@@ -52,7 +52,10 @@
 //! that user, so a suspended person still shows up for others. And without a name index
 //! the source reads at most `valence::MAX_QUERY_LIMIT` profiles per search.
 
+mod chips;
+mod listing;
 mod picker;
+mod rows;
 mod search_source;
 mod server;
 pub mod sources;

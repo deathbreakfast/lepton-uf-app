@@ -133,6 +133,12 @@ for (const look of LOOKS) {
       const word = uniqueWord();
       await seedPerson(request, `Noor ${capitalized(word)}`);
       await openDemo(page, auth, look);
+      const searched: string[] = [];
+      page.on("request", (req) => {
+        if (/search_people/i.test(req.url())) {
+          searched.push(new URLSearchParams(req.postData() ?? "").get("query") ?? "");
+        }
+      });
 
       const box = input(page, "pp-multi");
       await box.click();
@@ -143,8 +149,17 @@ for (const look of LOOKS) {
       await expect(list.getByTestId("person-picker-row")).toHaveCount(0);
 
       await box.fill(word.slice(0, 1));
-      // Past the debounce: a one-letter query still lists no one.
-      await page.waitForTimeout(600);
+      await expect(list.getByTestId("person-picker-status")).toContainText(
+        "Type 2 or more letters to search.",
+      );
+      await expect(list.getByTestId("person-picker-row")).toHaveCount(0);
+
+      // A full search in another picker outlasts the debounce, so by the time it answers
+      // any search for the one letter would have gone out too. None did.
+      const answered = page.waitForResponse((res) => /search_people/i.test(res.url()));
+      await input(page, "pp-single").fill(word);
+      await answered;
+      expect(searched).toEqual([word]);
       await expect(list.getByTestId("person-picker-row")).toHaveCount(0);
     });
 
