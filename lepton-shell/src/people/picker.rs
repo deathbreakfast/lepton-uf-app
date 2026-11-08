@@ -403,25 +403,34 @@ pub fn PersonPicker(
             return;
         }
         let q = q.trim().to_string();
+        // The timer fires outside any owner; run the search under the picker's, so it
+        // stops with the picker.
+        let owner = Owner::current();
         set_timeout(
             move || {
                 if generation.try_get_value() != Some(current) {
                     return;
                 }
-                leptos::task::spawn_local(async move {
-                    let outcome = search_people(q.clone(), kinds.get_value(), SEARCH_LIMIT).await;
-                    if generation.try_get_value() != Some(current) {
-                        return;
-                    }
-                    match outcome {
-                        Ok(rows) => {
-                            results.try_set(Some((q, rows)));
+                let Some(owner) = owner else {
+                    return;
+                };
+                owner.with(|| {
+                    leptos::task::spawn_local_scoped(async move {
+                        let outcome =
+                            search_people(q.clone(), kinds.get_value(), SEARCH_LIMIT).await;
+                        if generation.try_get_value() != Some(current) {
+                            return;
                         }
-                        Err(e) => {
-                            results.try_set(Some((q, Vec::new())));
-                            search_error.try_set(Some(search_error_text(&e)));
+                        match outcome {
+                            Ok(rows) => {
+                                results.try_set(Some((q, rows)));
+                            }
+                            Err(e) => {
+                                results.try_set(Some((q, Vec::new())));
+                                search_error.try_set(Some(search_error_text(&e)));
+                            }
                         }
-                    }
+                    })
                 });
             },
             DEBOUNCE,
