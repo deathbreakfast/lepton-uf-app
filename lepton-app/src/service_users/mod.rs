@@ -54,7 +54,7 @@ pub use port::{
     ServiceUserPermissionView, ServiceUserTokenView, SERVICE_USER_CREATORS_GROUP,
 };
 #[cfg(feature = "ssr")]
-pub use search::ServiceUserSearchSource;
+pub use search::{LegacyServiceUserSearchSource, ServiceUserSearchSource};
 pub use search::{ServiceUserSearchSourceId, SERVICE_USER_SEARCH_SOURCE_ID};
 pub use server::{
     check_service_user_handle, create_service_user_profile, get_service_user_row,

@@ -19,6 +19,9 @@
 //!   targets and AuthDialog referers. [Guide](#sanitize-post-auth-navigate-path)
 //! - **Frozen referer retention** — Keeps the gated path when WASM remounts rewrite the
 //!   live URL to `/auth/signin`. [Guide](#freeze-post-auth-referer)
+//! - **People search** — The `lepton_people` search source finds people by display name
+//!   for person pickers, without emails. [`people::sources`] names it and
+//!   the service user and team sources. [Module docs](people)
 //!
 //! ## Wire auth menu at boot
 //!
@@ -207,6 +210,7 @@ use uf_product::AuthDialogController;
 use uf_product::AuthDialogIntent;
 
 mod navigate_path;
+pub mod people;
 mod session_menu_items;
 use session_menu_items::SessionMenuItems;
 

@@ -2654,14 +2654,24 @@ dependencies = [
 name = "lepton-shell"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "crc32fast",
+ "inventory",
  "lepton-auth",
  "lepton-auth-ui",
+ "lepton-identity",
  "leptos",
  "leptos_router",
  "orbital-base-components",
  "orbital-primitives",
+ "serde",
+ "serde_json",
+ "tokio",
  "uf-product",
+ "uf-product-macros",
+ "uf-search-core",
+ "uf-spectra",
+ "uf-valence",
 ]
 
 [[package]]
