@@ -539,7 +539,7 @@ pub async fn boot_service_users(system: &Valence) -> anyhow::Result<()> {
 }
 
 /// Bare user id for the account whose primary email is `email`.
-async fn user_id_for_email(system: &Valence, email: &str) -> anyhow::Result<String> {
+pub(crate) async fn user_id_for_email(system: &Valence, email: &str) -> anyhow::Result<String> {
     let rows = lepton_identity::generated::AccountEmail::query(system, valence::use_!(r"**Test:** Lab host **finds the account email row** a Playwright run just seeded, so it can act as that user when seeding service users. Only the lab harness uses this."))
         .where_address(valence::StringPredicate::Equals(email.to_string()))
         .await?;

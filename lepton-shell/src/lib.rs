@@ -22,6 +22,9 @@
 //! - **People search** — The `lepton_people` search source finds people by display name
 //!   for person pickers, without emails. [`people::sources`] names it and
 //!   the service user and team sources. [Module docs](people)
+//! - **Person picker** — [`people::PersonPicker`] is one typeahead for people, teams and
+//!   service users, with Persona rows, chips, disabled rows and caller-supplied groups.
+//!   [Module docs](people)
 //!
 //! ## Wire auth menu at boot
 //!

@@ -16,6 +16,10 @@ lepton-app = { workspace = true }
 lepton-auth-app = { workspace = true }
 uf-product = { workspace = true, default-features = false }
 uf-integrations = { workspace = true, default-features = false }
+# Stand-in team search source for the person picker specs.
+uf-search-core = { workspace = true, optional = true }
+uf-product-macros = { workspace = true }
+inventory = { workspace = true, optional = true }
 
 # Kit: identity, session middleware, delivery adapters.
 lepton-auth = { workspace = true, default-features = false }
@@ -124,6 +128,9 @@ ssr = [
     "dep:gauge",
     "dep:neutrino",
     "dep:uf-lepton-delivery-boot",
+    "dep:uf-search-core",
+    "dep:inventory",
+    "uf-search-core/ssr",
     "higgs/ssr",
     "lepton-shell/ssr",
     "lepton-app/ssr",

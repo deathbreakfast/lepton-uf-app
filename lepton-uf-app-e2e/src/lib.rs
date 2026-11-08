@@ -3,6 +3,7 @@
 #![recursion_limit = "256"]
 
 pub mod app;
+pub mod person_picker;
 
 #[cfg(feature = "ssr")]
 pub mod boot;
@@ -10,6 +11,8 @@ pub mod boot;
 pub mod mock_providers;
 #[cfg(feature = "ssr")]
 pub mod permissions;
+#[cfg(feature = "ssr")]
+pub mod person_picker_lab;
 #[cfg(feature = "ssr")]
 pub mod seed;
 #[cfg(feature = "ssr")]
