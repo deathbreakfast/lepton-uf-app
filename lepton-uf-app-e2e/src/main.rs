@@ -83,6 +83,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/test/service-users",
             post(lepton_uf_app_e2e::service_users::service_user_lab),
         )
+        .route(
+            "/api/test/person-picker",
+            post(lepton_uf_app_e2e::person_picker_lab::person_picker_lab),
+        )
         .merge(lepton_uf_app_e2e::mock_providers::routes())
         .route(
             "/health",

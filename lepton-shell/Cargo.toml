@@ -16,6 +16,8 @@ lepton-auth = { workspace = true, default-features = false }
 lepton-auth-ui = { workspace = true, default-features = false }
 orbital-base-components = { workspace = true }
 orbital-primitives = { workspace = true, default-features = false }
+orbital-core-components = { workspace = true }
+icondata = { workspace = true }
 uf-product = { workspace = true, default-features = false }
 uf-product-macros = { workspace = true }
 uf-search-core = { workspace = true }
@@ -37,7 +39,7 @@ workspace = true
 
 [features]
 default = []
-hydrate = ["leptos/hydrate", "lepton-auth/hydrate", "lepton-auth-ui/hydrate", "uf-product/hydrate"]
+hydrate = ["leptos/hydrate", "lepton-auth/hydrate", "lepton-auth-ui/hydrate", "uf-product/hydrate", "orbital-core-components/hydrate"]
 ssr = [
     "leptos/ssr",
     "leptos_router/ssr",
@@ -45,6 +47,7 @@ ssr = [
     "lepton-auth-ui/ssr",
     "uf-product/ssr",
     "uf-search-core/ssr",
+    "orbital-core-components/ssr",
     "dep:valence",
     "dep:lepton-identity",
     "dep:spectra",
