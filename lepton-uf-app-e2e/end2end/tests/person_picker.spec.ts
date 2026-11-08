@@ -93,9 +93,8 @@ async function listFor(page: Page, id: string): Promise<Locator> {
 }
 
 async function search(page: Page, id: string, text: string): Promise<Locator> {
-  const box = input(page, id);
-  await box.click();
-  await box.fill(text);
+  // fill() focuses without a pointer click, so an open list over the box can't eat it.
+  await input(page, id).fill(text);
   return listFor(page, id);
 }
 

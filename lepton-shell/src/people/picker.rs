@@ -9,9 +9,9 @@ use orbital_core_components::{
     Persona, PersonaConfig, PersonaSecondaryText, PersonaSize, Tag, TagAppearance, TagSize,
 };
 use orbital_primitives::{
-    Avatar, AvatarConfig, Badge, BadgeAppearance, BadgeColor, BadgeSize, Button, ButtonAppearance,
-    ButtonSize, Combobox, ComboboxAppearance, ComboboxBind, ComboboxOption, ComboboxOptionGroup,
-    Field, Flex, FlexAlign, FlexGap, FlexJustify, FlexWrap,
+    Avatar, AvatarColor, AvatarConfig, Badge, BadgeAppearance, BadgeColor, BadgeSize, Button,
+    ButtonAppearance, ButtonSize, Combobox, ComboboxAppearance, ComboboxBind, ComboboxOption,
+    ComboboxOptionGroup, Field, Flex, FlexAlign, FlexGap, FlexJustify, FlexWrap,
 };
 
 use uf_product::components::Caption1;
@@ -28,6 +28,8 @@ const SEARCH_LIMIT: u32 = 20;
 const DEBOUNCE: Duration = Duration::from_millis(200);
 /// Recent picks kept for the empty box.
 const MAX_RECENTS: usize = 5;
+/// Rows remembered from earlier listings, so a pick still resolves after the list moved on.
+const MAX_SHOWN: usize = 200;
 
 thread_local! {
     // Browser-only memory of this page's picks. The server never writes it, so one
@@ -83,7 +85,17 @@ pub struct Listing {
 }
 
 impl Listing {
+    /// Every principal a row offers that can be picked.
+    fn pickable(&self) -> impl Iterator<Item = &PickedPrincipal> {
+        self.groups
+            .iter()
+            .flat_map(|g| &g.rows)
+            .filter(|r| !r.disabled)
+            .map(|r| &r.principal)
+    }
+
     /// The pickable principal behind option value `key`.
+    #[cfg(test)]
     fn pick(&self, key: &str) -> Option<PickedPrincipal> {
         self.groups
             .iter()
@@ -273,6 +285,7 @@ fn row_view(row: Row) -> impl IntoView {
                 name: Some(row.principal.label.clone()),
                 avatar_src: row.principal.image_url.clone(),
                 size: PersonaSize::Medium,
+                color: AvatarColor::Neutral,
                 ..PersonaConfig::named(row.principal.label.clone())
             }>
                 <PersonaSecondaryText slot>{secondary}</PersonaSecondaryText>
@@ -374,6 +387,9 @@ pub fn PersonPicker(
     let search_error = RwSignal::new(None::<String>);
     let recent = RwSignal::new(Vec::<PickedPrincipal>::new());
     let generation = StoredValue::new(0_u64);
+    // Rows the list has offered. Single mode writes the option's text into the box before
+    // the pick is read, which re-lists for that text, so picks resolve against this.
+    let shown = StoredValue::new(Vec::<PickedPrincipal>::new());
 
     Effect::new(move |_| recent.set(recent_picks()));
 
@@ -454,7 +470,7 @@ pub fn PersonPicker(
         let Some(key) = keys.last().cloned() else {
             return;
         };
-        let pick = listing.with_untracked(|l| l.pick(&key));
+        let pick = shown.with_value(|rows| rows.iter().find(|p| p.key() == key).cloned());
         selected.set(Vec::new());
         query.set(String::new());
         let Some(pick) = pick else {
@@ -488,6 +504,19 @@ pub fn PersonPicker(
     };
 
     let on_keydown = move |ev: KeyboardEvent| {
+        if ev.key() == "Escape" {
+            // The combobox doesn't close on Escape; leaving the input closes it, and
+            // focus goes straight back so the keyboard path carries on.
+            use leptos::wasm_bindgen::JsCast;
+            if let Some(input) = ev
+                .target()
+                .and_then(|t| t.dyn_into::<leptos::web_sys::HtmlElement>().ok())
+            {
+                let _ = input.blur();
+                let _ = input.focus();
+            }
+            return;
+        }
         if ev.key() != "Backspace" || disabled.get_untracked() {
             return;
         }
@@ -523,6 +552,7 @@ pub fn PersonPicker(
                         <Avatar config=AvatarConfig {
                             src: p.image_url.clone(),
                             size: Some(20),
+                            color: AvatarColor::Neutral,
                             ..AvatarConfig::name(label.clone())
                         } />
                     }
@@ -554,7 +584,17 @@ pub fn PersonPicker(
 
     let options = move || {
         let q = query.get();
-        let Listing { groups, status } = listing.get();
+        let listing = listing.get();
+        shown.update_value(|rows| {
+            for p in listing.pickable() {
+                if !rows.iter().any(|r| r.key() == p.key()) {
+                    rows.push(p.clone());
+                }
+            }
+            let overflow = rows.len().saturating_sub(MAX_SHOWN);
+            rows.drain(..overflow);
+        });
+        let Listing { groups, status } = listing;
         let groups = groups
             .into_iter()
             .map(|group| {
@@ -596,13 +636,6 @@ pub fn PersonPicker(
         <div data-testid="person-picker" style="width: 100%;">
             <Field label=label>
                 <Flex vertical=true gap=FlexGap::Small full_width=true>
-                    <Show when=move || value.with(|v| !v.is_empty())>
-                        <div data-testid="person-picker-chips">
-                            <Flex gap=FlexGap::Small wrap=FlexWrap::Wrap align=FlexAlign::Center>
-                                {chips}
-                            </Flex>
-                        </div>
-                    </Show>
                     <div on:keydown=on_keydown style="width: 100%;">
                         <Combobox
                             bind=ComboboxBind::new(query, selected)
@@ -612,6 +645,13 @@ pub fn PersonPicker(
                             {options}
                         </Combobox>
                     </div>
+                    <Show when=move || value.with(|v| !v.is_empty())>
+                        <div data-testid="person-picker-chips">
+                            <Flex gap=FlexGap::Small wrap=FlexWrap::Wrap align=FlexAlign::Center>
+                                {chips}
+                            </Flex>
+                        </div>
+                    </Show>
                     {move || search_error.get().map(|msg| view! {
                         <span data-testid="person-picker-error" role="alert">
                             <Caption1>{msg}</Caption1>
