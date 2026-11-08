@@ -17,18 +17,39 @@ lepton-auth-ui = { workspace = true, default-features = false }
 orbital-base-components = { workspace = true }
 orbital-primitives = { workspace = true, default-features = false }
 uf-product = { workspace = true, default-features = false }
+uf-product-macros = { workspace = true }
+uf-search-core = { workspace = true }
+meson-leptos = { workspace = true, default-features = false }
+valence = { workspace = true, optional = true }
+lepton-identity = { workspace = true, optional = true }
+spectra = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+serde = { workspace = true }
+inventory = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
 # Force crc32fast 1.5.0 through the dylint graph (see workspace pin).
 crc32fast = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
 
 [lints]
 workspace = true
 
 [features]
 default = []
-hydrate = ["leptos/hydrate", "lepton-auth/hydrate", "lepton-auth-ui/hydrate", "uf-product/hydrate"]
+hydrate = ["leptos/hydrate", "lepton-auth/hydrate", "lepton-auth-ui/hydrate", "uf-product/hydrate", "meson-leptos/hydrate"]
 ssr = [
     "leptos/ssr",
     "leptos_router/ssr",
     "lepton-auth/ssr",
     "lepton-auth-ui/ssr",
-    "uf-product/ssr"]
+    "uf-product/ssr",
+    "uf-search-core/ssr",
+    "meson-leptos/ssr",
+    "dep:valence",
+    "dep:lepton-identity",
+    "dep:spectra",
+    "dep:serde_json",
+    "dep:inventory",
+    "dep:chrono"]

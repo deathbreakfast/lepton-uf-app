@@ -13,11 +13,16 @@ use lepton_identity::service_users::{
 };
 use uf_search_core::{SearchSourceItem, SearchSourceProvider};
 use valence::{
-    register_backend_logical_names_slices, router_key, Actor, DatabaseRouter, InMemoryBackend,
-    Model, RegisterBackendLogicalNamesOptions, Valence, MEM_ENGINE_ID,
+    register_backend_logical_names_slices, router_key, Actor, DatabaseRouter, Model,
+    RegisterBackendLogicalNamesOptions, SqliteBackend, Valence, SQLITE_ENGINE_ID,
 };
 
-use super::{ServiceUserSearchSource, SERVICE_USER_SEARCH_SOURCE_ID};
+use lepton_shell::people::sources::SERVICE_USERS;
+use uf_search_core::{SearchSourceKey, SearchSourceRegistry};
+
+use super::{
+    LegacyServiceUserSearchSource, ServiceUserSearchSource, SERVICE_USER_SEARCH_SOURCE_ID,
+};
 
 const MAKER: &str = "maker";
 const SUPER: &str = "super";
@@ -49,20 +54,22 @@ fn setup() {
     });
 }
 
-/// A fresh in-memory Valence acting as `actor`; every call is an isolated store.
-fn store(actor: Actor) -> Valence {
+/// A fresh in-memory SQLite Valence acting as `actor`; every call is an isolated store.
+/// SQLite rather than `InMemoryBackend`, which refuses the service user handle's unique
+/// index.
+async fn store(actor: Actor) -> Valence {
     std::env::set_var("VALENCE_OWNERSHIP_UNIFIED_FETCH", "0");
     std::env::set_var("VALENCE_OWNERSHIP_COLOCATE", "0");
     let mut router = DatabaseRouter::new();
     register_backend_logical_names_slices(
         &mut router,
-        Arc::new(InMemoryBackend::new()),
+        Arc::new(SqliteBackend::connect_memory().await.expect("sqlite")),
         &[&["default"]],
         RegisterBackendLogicalNamesOptions::default(),
     );
     Valence::builder()
         .database_router(Arc::new(router))
-        .default_backend_key(router_key("default", MEM_ENGINE_ID))
+        .default_backend_key(router_key("default", SQLITE_ENGINE_ID))
         .with_actor(actor)
         .build()
         .expect("valence")
@@ -134,7 +141,8 @@ async fn owner_sees_own_service_users_with_name_and_owner() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     let id = seed_service_user(&system, "maker-a", "ci-bot", "CI bot").await;
 
     let items = search(&as_user(&system, "maker-a"), "", 10).await;
@@ -142,7 +150,8 @@ async fn owner_sees_own_service_users_with_name_and_owner() {
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].title, "CI bot");
     assert_eq!(items[0].id, id.as_str());
-    assert_eq!(items[0].source_id, SERVICE_USER_SEARCH_SOURCE_ID);
+    assert_eq!(items[0].source_id, SERVICE_USERS);
+    assert_eq!(items[0].image_url, None);
     assert_eq!(items[0].kind, "service_user");
     assert_eq!(items[0].description.as_deref(), Some("Owned by you"));
 }
@@ -152,7 +161,8 @@ async fn stranger_sees_none_of_another_owners_service_users() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     seed_service_user(&system, "maker-a", "a-bot", "A bot").await;
     seed_service_user(&system, "maker-b", "b-bot", "B bot").await;
     seed_user(&system, "member-c").await;
@@ -177,7 +187,8 @@ async fn manage_any_sees_every_owners_service_users() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     seed_service_user(&system, "maker-a", "a-bot", "A bot").await;
     seed_service_user(&system, "maker-b", "b-bot", "B bot").await;
     seed_user(&system, "super-s").await;
@@ -199,7 +210,8 @@ async fn service_user_actor_gets_nothing() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     let id = seed_service_user(&system, "maker-a", "a-bot", "A bot").await;
 
     let as_service_user = system.with_actor(Actor::ServiceUser {
@@ -221,7 +233,8 @@ async fn deleted_service_user_is_hidden_while_deletion_runs() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     let gone = seed_service_user(&system, "maker-a", "gone-bot", "Gone bot").await;
     seed_service_user(&system, "maker-a", "kept-bot", "Kept bot").await;
     let owner = as_user(&system, "maker-a");
@@ -239,7 +252,8 @@ async fn query_text_filters_by_name_or_handle_and_limit_applies() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     seed_service_user(&system, "maker-a", "alpha-bot", "Builder").await;
     seed_service_user(&system, "maker-a", "beta-bot", "Reporter").await;
     seed_service_user(&system, "maker-a", "gamma-bot", "Reporter two").await;
@@ -258,7 +272,8 @@ async fn search_returns_matches_beyond_the_old_window() {
     setup();
     let system = store(Actor::System {
         operation: "test".to_string(),
-    });
+    })
+    .await;
     // More readable service users than the old fixed 50-row scan window, so a bounded
     // window would silently drop matches. One per owner keeps each under the quota.
     for i in 0..60 {
@@ -286,10 +301,68 @@ async fn search_returns_matches_beyond_the_old_window() {
 }
 
 #[test]
-fn source_id_matches_the_registered_key() {
+fn source_ids_match_the_registered_keys() {
     use super::ServiceUserSearchSourceId;
 
-    let key = ServiceUserSearchSourceId::ServiceUser.key();
-    assert_eq!(key.id, SERVICE_USER_SEARCH_SOURCE_ID);
+    let key = ServiceUserSearchSourceId::ServiceUsers.key();
+    assert_eq!(key.id, SERVICE_USERS);
     assert_eq!(key.label, "Service users");
+    let alias = ServiceUserSearchSourceId::ServiceUser.key();
+    assert_eq!(alias.id, SERVICE_USER_SEARCH_SOURCE_ID);
+    assert_ne!(alias.id, key.id);
+}
+
+#[tokio::test]
+async fn old_id_finds_the_same_service_users_stamped_with_the_old_id() {
+    setup();
+    let system = store(Actor::System {
+        operation: "test".to_string(),
+    })
+    .await;
+    seed_service_user(&system, "maker-alias", "alias-bot", "Alias bot").await;
+    let owner = as_user(&system, "maker-alias");
+
+    let new = ServiceUserSearchSource
+        .query(&owner, "alias", 10)
+        .await
+        .expect("new id");
+    let old = LegacyServiceUserSearchSource
+        .query(&owner, "alias", 10)
+        .await
+        .expect("old id");
+
+    assert_eq!(titles(&new), ["Alias bot"]);
+    assert_eq!(titles(&old), ["Alias bot"]);
+    assert_eq!(new[0].id, old[0].id);
+    assert_eq!(new[0].source_id, SERVICE_USERS);
+    assert_eq!(old[0].source_id, SERVICE_USER_SEARCH_SOURCE_ID);
+}
+
+#[tokio::test]
+async fn registry_answers_both_ids_and_skips_unknown_ones() {
+    setup();
+    let system = store(Actor::System {
+        operation: "test".to_string(),
+    })
+    .await;
+    seed_service_user(&system, "maker-reg", "reg-bot", "Registry bot").await;
+    let owner = as_user(&system, "maker-reg");
+    let registry = SearchSourceRegistry::auto_discover();
+
+    for id in [SERVICE_USERS, SERVICE_USER_SEARCH_SOURCE_ID] {
+        let keys = [SearchSourceKey::new(id, "Service users")];
+        let hits = registry
+            .query_many(&keys, &owner, "registry", 10)
+            .await
+            .expect("query_many");
+        assert_eq!(titles(&hits), ["Registry bot"], "id {id}");
+        assert_eq!(hits[0].source_id, id);
+    }
+
+    let unknown = [SearchSourceKey::new("no_such_source", "Nothing")];
+    let none = registry
+        .query_many(&unknown, &owner, "registry", 10)
+        .await
+        .expect("unknown id");
+    assert_eq!(titles(&none), Vec::<&str>::new());
 }
