@@ -217,15 +217,3 @@ orbital-charts = { git = "https://github.com/unified-field-dev/orbital", branch 
 orbital-tree = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-scheduler = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
-
-# Temporary: `SearchSourceItem::image_url` (people search photos) is on the uf-product
-# `feat/platform-1` branch of the fork until it reaches unified-field-dev main. Patching
-# the git source keeps one copy of each uf-product crate in the build. Remove once merged.
-[patch."https://github.com/unified-field-dev/unified-field-product"]
-uf-product = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-integrations = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-product-macros = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-search-core = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-appearance = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-help = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }
-uf-help-macros = { git = "https://github.com/deathbreakfast/unified-field-product", branch = "feat/platform-1" }

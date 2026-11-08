@@ -6,9 +6,7 @@ use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
-use lepton_identity::generated::{
-    FileFileStatus, ProfilePhoto, User, UserProfile, UserStatus, UserUserType,
-};
+use lepton_identity::generated::{User, UserProfile, UserStatus, UserUserType};
 use uf_search_core::{
     SearchSourceItem, SearchSourceKey, SearchSourceProvider, SearchSourceRegistry,
 };
@@ -62,13 +60,12 @@ fn as_user(base: &Valence, id: &str) -> Valence {
     })
 }
 
-/// **Test:** one seeded person: a User row, a profile and optionally an active photo.
+/// **Test:** one seeded person: a User row and a profile.
 struct Person<'a> {
     id: &'a str,
     legal_name: &'a str,
     display_name: &'a str,
     status: UserStatus,
-    photo: Option<FileFileStatus>,
 }
 
 impl<'a> Person<'a> {
@@ -78,7 +75,6 @@ impl<'a> Person<'a> {
             legal_name: "Legal Name Kept Private",
             display_name,
             status: UserStatus::Active,
-            photo: None,
         }
     }
 }
@@ -103,43 +99,18 @@ async fn seed(system: &Valence, p: Person<'_>) {
         .expect("seed user");
 
     let profile_id = format!("profile{}", p.id);
-    let photo_id = format!("photo{}", p.id);
-    let active_photo = p
-        .photo
-        .as_ref()
-        .map(|_| RecordId::new("profile_photo", photo_id.clone()));
     let profile = UserProfile::new(
         RecordId::new("user", p.id),
         p.legal_name.to_string(),
         p.display_name.to_string(),
         now,
         now,
-        active_photo,
+        None,
     )
     .expect("profile");
     UserProfile::upsert(&profile_id, profile, system, valence::use_!(r"**Test:** Fixture **User Profile** save for the people search tests so a display name can be searched. CI and developers running the suite only."))
         .await
         .expect("seed profile");
-
-    if let Some(status) = p.photo {
-        let photo = ProfilePhoto::new(
-            RecordId::new("user_profile", profile_id),
-            Some(96),
-            Some(96),
-            "face.png".to_string(),
-            "png".to_string(),
-            "image/png".to_string(),
-            10,
-            "photos/face.png".to_string(),
-            status,
-            RecordId::new("user", p.id),
-            now,
-        )
-        .expect("photo");
-        ProfilePhoto::upsert(&photo_id, photo, system, valence::use_!(r"**Test:** Fixture **Profile Photo** save for the people search tests so results can carry a photo. CI and developers running the suite only."))
-            .await
-            .expect("seed photo");
-    }
 }
 
 async fn search(v: &Valence, text: &str, max: u32) -> Vec<SearchSourceItem> {
@@ -346,7 +317,6 @@ async fn no_email_or_legal_name_in_any_field() {
         &system,
         Person {
             legal_name: "Augusta Ada King",
-            photo: Some(FileFileStatus::Available),
             ..Person::new(ADA, "Ada Lovelace")
         },
     )
@@ -358,11 +328,7 @@ async fn no_email_or_legal_name_in_any_field() {
     let items = search(&viewer, "ada", 10).await;
     assert_eq!(titles(&items), ["Ada Lovelace"]);
     for item in &items {
-        let fields = [
-            Some(item.title.as_str()),
-            item.description.as_deref(),
-            item.image_url.as_deref(),
-        ];
+        let fields = [Some(item.title.as_str()), item.description.as_deref()];
         for field in fields.into_iter().flatten() {
             assert!(!field.contains('@'), "email in {field:?}");
             assert!(!field.contains("Augusta"), "legal name in {field:?}");
@@ -370,51 +336,6 @@ async fn no_email_or_legal_name_in_any_field() {
     }
     assert_eq!(search(&viewer, "grace", 10).await, NONE);
     assert_eq!(search(&viewer, "augusta", 10).await, NONE);
-}
-
-#[tokio::test]
-async fn available_photo_gives_a_file_url() {
-    let system = store();
-    seed(
-        &system,
-        Person {
-            photo: Some(FileFileStatus::Available),
-            ..Person::new(ADA, "Ada Lovelace")
-        },
-    )
-    .await;
-
-    let items = search(&as_user(&system, "viewer-photo"), "ada", 10).await;
-    assert_eq!(
-        items[0].image_url.as_deref(),
-        Some(format!("/api/files/photo{ADA}").as_str())
-    );
-}
-
-#[tokio::test]
-async fn unscanned_quarantined_or_missing_photo_gives_none() {
-    let system = store();
-    seed(
-        &system,
-        Person {
-            photo: Some(FileFileStatus::Quarantined),
-            ..Person::new(ADA, "Ada Lovelace")
-        },
-    )
-    .await;
-    seed(
-        &system,
-        Person {
-            photo: Some(FileFileStatus::PendingVirusScan),
-            ..Person::new(GRACE, "Ada Grace")
-        },
-    )
-    .await;
-    seed(&system, Person::new(ALAN, "Ada Alan")).await;
-
-    let items = search(&as_user(&system, "viewer-nophoto"), "ada", 10).await;
-    assert_eq!(items.len(), 3);
-    assert!(items.iter().all(|i| i.image_url.is_none()));
 }
 
 #[tokio::test]

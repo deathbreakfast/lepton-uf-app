@@ -2,9 +2,9 @@
 //!
 //! The `lepton_people` source finds signed-in users by display name: a case-insensitive
 //! match on the start of the name or the start of any word in it. Each result carries the
-//! display name as its title, the first six characters of the user id as a disambiguator,
-//! and the active profile photo URL when the viewer may read it. Results never include an
-//! email address or legal name.
+//! display name as its title and the first six characters of the user id as a
+//! disambiguator. Results never include an email address or legal name. Profile photos
+//! aren't included yet: the search result type in uf-product gains an image field first.
 //!
 //! [`sources`] holds the ids a picker passes to `uf_integrations::SearchSourcePicker`, for
 //! people and for the other principal kinds a person picker shows beside them:

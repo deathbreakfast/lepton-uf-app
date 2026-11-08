@@ -20,7 +20,7 @@
 //! - **Frozen referer retention** — Keeps the gated path when WASM remounts rewrite the
 //!   live URL to `/auth/signin`. [Guide](#freeze-post-auth-referer)
 //! - **People search** — The `lepton_people` search source finds people by display name
-//!   for person pickers, with photos and without emails. [`people::sources`] names it and
+//!   for person pickers, without emails. [`people::sources`] names it and
 //!   the service user and team sources. [Module docs](people)
 //!
 //! ## Wire auth menu at boot

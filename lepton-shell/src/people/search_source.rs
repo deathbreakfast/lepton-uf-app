@@ -50,7 +50,7 @@ mod metric {
 mod ssr {
     use std::time::Instant;
 
-    use lepton_identity::generated::{ProfilePhoto, User, UserProfile, UserStatus};
+    use lepton_identity::generated::{User, UserProfile, UserStatus};
     use uf_search_core::{SearchSourceError, SearchSourceFuture, SearchSourceItem};
     use valence::ownership::OwnershipService;
     use valence::{Model, Valence};
@@ -92,20 +92,6 @@ mod ssr {
                 Some(UserStatus::Disabled | UserStatus::PendingVerification)
             ),
         })
-    }
-
-    /// `/api/files/{id}` for the profile's active photo when the viewer may read it and
-    /// the file has passed its scan; otherwise `None`.
-    async fn photo_url(v: &Valence, profile: &UserProfile) -> Option<String> {
-        let photo_id = bare(profile.active_photo()?);
-        let photo = ProfilePhoto::get(
-            &photo_id,
-            v,
-            valence::use_!(r"In **people search**, we **read the person's active profile photo** so a person picker can show their face next to their name. The photo is shown only when the viewer may read it and the file has passed its scan."),
-        )
-        .await
-        .ok()??;
-        meson_leptos::meson_image_src_for_status(&photo_id, photo.file_status().as_str())
     }
 
     async fn search(
@@ -154,7 +140,7 @@ mod ssr {
         // query clamps the fetch to the platform maximum until Lepton has a name index.
         let profiles = UserProfile::query(
             v,
-            valence::use_!(r"In **people search**, we **list profiles by display name** so a person picker can find someone by the start of their name. Only display names and photos are shown; email addresses and legal names are never read for this."),
+            valence::use_!(r"In **people search**, we **list profiles by display name** so a person picker can find someone by the start of their name. Only display names are shown; email addresses and legal names are never read for this."),
         )
         .limit(valence::MAX_QUERY_LIMIT)
         .await?;
@@ -181,7 +167,6 @@ mod ssr {
                 title: profile.display_name().trim().to_string(),
                 description: Some(short_id(&user_id)),
                 kind: "user".to_string(),
-                image_url: photo_url(v, &profile).await,
             });
             if out.len() >= cap {
                 break;

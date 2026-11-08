@@ -151,7 +151,6 @@ async fn owner_sees_own_service_users_with_name_and_owner() {
     assert_eq!(items[0].title, "CI bot");
     assert_eq!(items[0].id, id.as_str());
     assert_eq!(items[0].source_id, SERVICE_USERS);
-    assert_eq!(items[0].image_url, None);
     assert_eq!(items[0].kind, "service_user");
     assert_eq!(items[0].description.as_deref(), Some("Owned by you"));
 }
