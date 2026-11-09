@@ -167,6 +167,7 @@ mod ssr {
                 title: profile.display_name().trim().to_string(),
                 description: Some(short_id(&user_id)),
                 kind: "user".to_string(),
+                image_url: None,
             });
             if out.len() >= cap {
                 break;

@@ -196,6 +196,7 @@ mod ssr {
                         if paused { " (paused)" } else { "" }
                     )),
                     kind: "service_user".to_string(),
+                    image_url: None,
                 });
                 if out.len() >= max_results as usize {
                     break;

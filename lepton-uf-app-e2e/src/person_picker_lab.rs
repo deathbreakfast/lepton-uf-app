@@ -64,6 +64,7 @@ impl uf_search_core::SearchSourceProvider for LabTeamSearchSource {
                     title: t.name.clone(),
                     description: Some(format!("{} members", t.members)),
                     kind: "team".to_string(),
+                    image_url: None,
                 })
                 .collect())
         })
