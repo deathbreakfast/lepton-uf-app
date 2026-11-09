@@ -1,6 +1,6 @@
 # PR / merge gate aligned with docs/VERIFICATION.md.
 # Standalone checkout — UF deps resolve via git branch = main on unified-field-dev.
-# Private lepton checkout is e2e-only (Mailpit compose).
+# The lepton checkout is e2e-only (Mailpit compose).
 #
 # Pull requests: `pull_request` runs for branches on unified-field-dev/lepton-uf-app.
 # Fork PRs need a same-repo branch on uf-dev or fork-workflow approval in Settings.
@@ -85,12 +85,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - name: Checkout lepton (Mailpit / private kit)
+      - name: Checkout lepton (Mailpit compose)
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           repository: unified-field-dev/lepton
           path: lepton
-          ssh-key: ${{ secrets.LEPTON_CLONE_SSH_KEY }}
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master (pin)
         with:
           toolchain: nightly
