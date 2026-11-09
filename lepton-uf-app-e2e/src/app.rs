@@ -18,6 +18,8 @@ use uf_integrations::{
     UnifiedFieldNotFoundPage, UnifiedFieldShellLayout,
 };
 use uf_product::components::ContentContainer;
+
+use crate::person_picker::PersonPickerDemoPage;
 use uf_product::primitives::{Body1, Flex, FlexAlign, FlexGap, FlexWrap, Link, Title3};
 use uf_product::routes::RequireAuthenticated;
 use uf_product::telemetry::UfAppRouteEntry;
@@ -62,6 +64,7 @@ pub fn App() -> impl IntoView {
                 <Routes fallback=|| view! { <HostNotFoundPage /> }>
                     <Route path=path!("/") view=HomePage/>
                     <Route path=path!("gate/auth-required") view=GateAuthRequiredPage/>
+                    <Route path=path!("dev/person-picker") view=PersonPickerDemoPage/>
                     <UserAppRoutes />
                     <LeptonAuthRoutes />
                 </Routes>

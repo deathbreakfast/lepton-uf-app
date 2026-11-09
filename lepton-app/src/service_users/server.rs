@@ -66,6 +66,40 @@ pub(super) mod ssr {
             .map_err(|_| ServerFnError::new(ServiceUserError::NotFound.to_string()))
     }
 
+    /// "you", the owner's display name, or "another user" when the caller can't read it.
+    pub async fn owner_label(v: &Valence, service_user: &ServiceUserAccount) -> String {
+        use lepton_identity::generated::UserProfile;
+
+        const OTHER: &str = "another user";
+        let bare = |rid: &valence::RecordId| {
+            valence::extract_id_from_record(rid).unwrap_or_else(|_| rid.id().to_string())
+        };
+        let Some(owner_id) = service_user.user().map(bare) else {
+            return OTHER.to_string();
+        };
+        let actor_id = v
+            .actor()
+            .user_id()
+            .map(|id| id.split_once(':').map_or(id, |(_, b)| b).to_string());
+        if actor_id.as_deref() == Some(owner_id.as_str()) {
+            return "you".to_string();
+        }
+        let profiles = UserProfile::get_from_user_id(
+            &owner_id,
+            v,
+            valence::use_!(r"On a **service user's page**, we **read the owner's display name** so the person looking can tell whose it is. People who may read that profile see the name; otherwise the owner shows as another user."),
+        )
+        .await;
+        profiles
+            .ok()
+            .and_then(|rows| {
+                rows.first()
+                    .map(|p| p.display_name().trim().to_string())
+                    .filter(|name| !name.is_empty())
+            })
+            .unwrap_or_else(|| OTHER.to_string())
+    }
+
     pub fn row(service_user: &ServiceUserAccount) -> ServiceUserRow {
         let id = service_user.id().map_or_else(String::new, |rid| {
             valence::extract_id_from_record(rid).unwrap_or_else(|_| rid.id().to_string())

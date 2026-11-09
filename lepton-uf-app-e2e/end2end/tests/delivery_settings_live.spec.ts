@@ -9,6 +9,7 @@
 import { test, expect, clickTestId, waitForAppReady, authDialog, fillAndSubmitSignIn } from "./fixtures";
 import { FreshCodes } from "./helpers/fresh_totp";
 import { totpCode } from "./helpers/totp";
+import { setSecret } from "./helpers/delivery";
 
 type Page = import("@playwright/test").Page;
 
@@ -46,13 +47,13 @@ async function confirmStepUp(page: Page, code: string): Promise<void> {
 
 async function saveSms(page: Page, codes: FreshCodes, keySid: string, secret: string): Promise<void> {
   const card = page.getByTestId("delivery-sms-card");
-  await card.getByRole("radio", { name: "Twilio Verify" }).check();
+  await card.getByRole("radio", { name: "Verify" }).check();
   await page.getByTestId("delivery-sms-account-sid").locator("input").fill(need("UF_TWILIO_ACCOUNT_SID"));
   await page.getByTestId("delivery-sms-api-key-sid").locator("input").fill(keySid);
-  await page.getByTestId("delivery-sms-secret").locator("input").fill(secret);
+  await setSecret(page, "delivery-sms-secret", secret);
   await page.getByTestId("delivery-sms-verify-sid").locator("input").fill(need("UF_TWILIO_VERIFY_SERVICE_SID"));
   await page.getByTestId("delivery-sms-recipient").locator("input").fill(need("UF_LIVE_SEND_TO_PHONE"));
-  await clickTestId(page, "delivery-sms-save");
+  await clickTestId(page, "delivery-save");
   await confirmStepUp(page, await codes.next());
   await expect(page.getByTestId("delivery-sms-outcome")).toContainText("Text-message settings saved", {
     timeout: 90_000,
@@ -73,10 +74,10 @@ test.describe("pw-lepton-delivery-settings-live", () => {
     // SendGrid: the page's save sends a real test message first.
     const email = page.getByTestId("delivery-email-card");
     await email.getByRole("radio", { name: "SendGrid" }).check();
-    await page.getByTestId("delivery-email-sendgrid-key").locator("input").fill(need("UF_LIVE_SENDGRID_API_KEY"));
+    await setSecret(page, "delivery-email-sendgrid-key", need("UF_LIVE_SENDGRID_API_KEY"));
     await page.getByTestId("delivery-email-from").locator("input").fill(need("UF_LIVE_EMAIL_FROM"));
     await page.getByTestId("delivery-email-recipient").locator("input").fill(need("UF_LIVE_SEND_TO_EMAIL"));
-    await clickTestId(page, "delivery-email-save");
+    await clickTestId(page, "delivery-save");
     await confirmStepUp(page, await codes.next());
     await expect(page.getByTestId("delivery-email-outcome")).toContainText("Email settings saved", {
       timeout: 90_000,
@@ -90,7 +91,7 @@ test.describe("pw-lepton-delivery-settings-live", () => {
       need("UF_LIVE_TWILIO_ROTATED_API_KEY"),
       need("UF_LIVE_TWILIO_ROTATED_API_SECRET"),
     );
-    // With the secret field empty, the test uses the stored (rotated) secret.
+    // With no new secret typed, the test uses the stored (rotated) secret.
     await clickTestId(page, "delivery-sms-test");
     await expect(page.getByTestId("delivery-sms-outcome")).toContainText("Test code sent", {
       timeout: 90_000,

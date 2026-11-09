@@ -12,6 +12,7 @@ use uf_product::primitives::*;
 
 use crate::paths;
 use crate::service_users::error::friendly_error;
+use crate::service_users::needs_authenticator::{use_authenticator_missing, NeedsAuthenticator};
 use crate::service_users::request_access::RequestGroupAccess;
 use crate::service_users::server::{grant_service_user_access, service_user_access_choices};
 use crate::service_users::step_up::spawn_with_step_up;
@@ -104,7 +105,13 @@ fn ChoiceForm(
         })
     };
     let pending = RwSignal::new(false);
+    let authenticator_missing = use_authenticator_missing();
+    let needs_authenticator = Signal::derive(move || {
+        authenticator_missing.get() && selected().iter().any(|(_, group)| *group)
+    });
     let nothing_selected = Signal::derive(move || selected().is_empty());
+    let continue_disabled =
+        Signal::derive(move || nothing_selected.get() || needs_authenticator.get());
     // Any failure, or a closed step-up dialog, sets `error`; that ends the wait.
     Effect::new(move |_| {
         if error.get().is_some() {
@@ -200,6 +207,9 @@ fn ChoiceForm(
                 {rows}
                 <Show when=move || any_blocked><Divider /></Show>
                 {blocked_rows}
+                <Show when=move || needs_authenticator.get()>
+                    <NeedsAuthenticator action="add a service user to a group" />
+                </Show>
                 {move || error.get().map(|e| {
                     let body = if e.contains("STEP_UP:") {
                         (MessageBarIntent::Warning, "Access wasn't added. Choose Continue to try again.".to_string().into_any())
@@ -231,7 +241,7 @@ fn ChoiceForm(
                 <div data-testid="service-user-access-continue">
                     <Button
                         appearance=ButtonAppearance::Primary
-                        disabled=nothing_selected
+                        disabled=continue_disabled
                         loading=pending
                         on_click=Callback::new(next)
                     >

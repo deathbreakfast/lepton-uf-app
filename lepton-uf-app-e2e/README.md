@@ -63,6 +63,37 @@ cargo leptos end-to-end --split --project lepton-uf-app-e2e
 
 Do not interrupt the end-to-end run. It stops on its own when Playwright finishes.
 
+### Run as lanes
+
+`end2end/run-lanes.sh` builds once with the same `cargo leptos build` line as
+CI, starts one host per lane, and runs each lane's test list on its own host.
+It needs Docker, because every lane gets its own Mailpit. The default is
+8 lanes; `LANES=n` changes it, but the committed lists in `end2end/lanes/` are
+packed for 8, and any other count falls back to Playwright's `--shard`.
+
+```bash
+cd lepton-uf-app-e2e/end2end
+./run-lanes.sh                         # full run, 8 lanes
+./run-lanes.sh -g "pw-su-pause"        # targeted: one host, one lane
+./run-lanes.sh --serial --out /tmp/serial   # every test in order, one host
+```
+
+Results, per-lane logs and a stage timing table land in
+`end2end/lanes-out/<stamp>/` (`summary.md`). The run fails on any failed,
+missing or duplicated test.
+
+The lists come from a serial run's per-test times. To pack them again after
+adding or reshaping specs:
+
+```bash
+./run-lanes.sh --serial --out /tmp/serial
+python3 -I lanes.py partition --results /tmp/serial/lane-1/results.json \
+  --n 8 --out lanes --split service-users.spec.ts
+```
+
+New tests that no list names are dealt out round-robin until the lists are
+packed again.
+
 To watch the browser, serve in one terminal and drive Playwright in another:
 
 ```bash
@@ -100,16 +131,19 @@ Shared Playwright helpers live in [`end2end/shared/`](end2end/shared/) (`seedTes
 | `account_wipe_totp.spec.ts` | `pw-account-wipe-totp-happy`, `pw-account-wipe-totp-bad-code-sad` |
 | `totp_enroll.spec.ts` | `pw-totp-enroll-happy`, `pw-totp-enroll-bad-code-sad` |
 | `oauth_link_settings.spec.ts` | `pw-oauth-link-google-happy`, `pw-oauth-link-account-taken-sad` |
-| `delivery_settings.spec.ts` | `pw-lepton-delivery-settings-happy`, `pw-lepton-delivery-settings-denied-sad`, `pw-lepton-delivery-settings-test-send-failed-sad`, `pw-lepton-delivery-settings-stepup-sad` |
-| `service-users.spec.ts` | `pw-lepton-service-users-list-empty-happy`, `pw-lepton-service-users-no-permission-sad`, `pw-lepton-service-users-anonymous-sad`, `pw-lepton-service-users-create-full-happy`, `pw-lepton-service-users-reveal-once-happy`, `pw-lepton-service-users-handle-clash-sad`, `pw-lepton-service-users-handle-invalid-sad`, `pw-lepton-service-users-profile-empty-name-sad`, `pw-lepton-service-users-access-not-grantable-sad`, `pw-lepton-service-users-quota-sad`, `pw-lepton-service-users-token-limit-sad`, `pw-lepton-service-users-foreign-service-user-sad`, `pw-lepton-service-users-suspended-service-user-sad`, `pw-lepton-service-users-dark-mode`, `pw-lepton-service-users-mobile-390`, `pw-lepton-service-users-keyboard-create` |
+| `delivery_settings.spec.ts` | `pw-lepton-delivery-settings-happy`, `pw-lepton-delivery-settings-denied-sad`, `pw-lepton-delivery-settings-test-send-failed-sad`, `pw-lepton-delivery-settings-stepup-sad`, `pw-lepton-delivery-settings-no-2fa-sad`, `pw-lepton-delivery-settings-phone-dark` |
+| `service-users.spec.ts` | `pw-lepton-service-users-list-empty-happy`, `pw-lepton-service-users-no-permission-sad`, `pw-lepton-service-users-anonymous-sad`, `pw-lepton-service-users-create-full-happy`, `pw-lepton-service-users-reveal-once-happy`, `pw-lepton-service-users-handle-clash-sad`, `pw-lepton-service-users-handle-invalid-sad`, `pw-lepton-service-users-profile-empty-name-sad`, `pw-lepton-service-users-access-step-up-sad`, `pw-lepton-service-users-access-not-grantable-sad`, `pw-lepton-service-users-quota-sad`, `pw-lepton-service-users-token-limit-sad`, `pw-lepton-service-users-foreign-service-user-sad`, `pw-lepton-service-users-suspended-service-user-sad`, `pw-lepton-service-users-dark-mode`, `pw-lepton-service-users-dark-access-reveal`, `pw-lepton-service-users-mobile-390`, `pw-lepton-service-users-keyboard-create` |
 
 ## Sign-in and delivery
 
 The page at `/user/delivery` runs on the same boot a cell uses. The host seeds its
 delivery settings from env once (Mailpit for mail, the mocks below for SendGrid and
 Twilio Verify, the mock IdP for OAuth), keeps the secrets in Neutrino, and applies a
-saved change without a restart. Writes ask for a fresh authenticator code, so a spec
-that saves twice waits for the next 30 second step.
+saved change without a restart. Secrets are typed into a one-field sheet and sent by
+the single Save at the foot of the page, which asks for one fresh authenticator code
+for every changed section; a spec that saves twice waits for the next 30 second step.
+The phone spec runs at 390px in dark mode and saves screenshots to its test output
+folder.
 
 Lab-only routes, never mounted on a production host:
 

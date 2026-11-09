@@ -1,9 +1,10 @@
 //! Search source that lists the service users the signed-in person can read.
 //!
 //! Other products (a team's Add people dialog, for example) pass
-//! [`SERVICE_USER_SEARCH_SOURCE_ID`] to `uf_integrations::SearchSourcePicker` to let
-//! someone pick one of their service users. Each hit carries the service user's
-//! display name as its title and its owner in the description.
+//! [`lepton_shell::people::sources::SERVICE_USERS`] (`lepton_service_users`) to
+//! `uf_integrations::SearchSourcePicker` to let someone pick one of their service users.
+//! The older id, [`SERVICE_USER_SEARCH_SOURCE_ID`], still answers the same way. Each hit
+//! carries the service user's display name as its title and its owner in the description.
 //!
 //! Who sees what follows Lepton's read rule for service users. An owner sees their own;
 //! a user the host's [`ServiceUserGate`](lepton_identity::service_users::ServiceUserGate)
@@ -17,25 +18,31 @@
 //! use uf_integrations::SearchSourcePicker;
 //! use leptos::prelude::*;
 //!
-//! // `ServiceUserSearchSourceId::ServiceUser.key()` names the source for the picker;
-//! // the id string is `lepton_app::service_users::SERVICE_USER_SEARCH_SOURCE_ID`.
-//! let sources = vec![ServiceUserSearchSourceId::ServiceUser.key()];
+//! // `ServiceUserSearchSourceId::ServiceUsers.key()` names the source for the picker;
+//! // the id string is `lepton_shell::people::sources::SERVICE_USERS`.
+//! let sources = vec![ServiceUserSearchSourceId::ServiceUsers.key()];
 //! # let _ = sources;
 //! ```
 
-/// Stable id of the service user search source, for `SearchSourcePicker` and
-/// `SearchSourceKey`.
+/// Older id of the service user search source, kept as an alias. New code passes
+/// [`lepton_shell::people::sources::SERVICE_USERS`].
 pub const SERVICE_USER_SEARCH_SOURCE_ID: &str = "service_user_search_source";
 
 // The enum and its `key()` exist without `ssr` so hydrate UI can build picker source
 // lists; the provider submission stays behind `ssr` inside the macro expansion.
 uf_product_macros::define_search_sources! {
     enum ServiceUserSearchSourceId {
-        ServiceUser => {
-            id: "service_user_search_source",
+        ServiceUsers => {
+            id: "lepton_service_users",
             label: "Service users",
             description: "Searches the service users you can see",
             provider: ServiceUserSearchSource
+        },
+        ServiceUser => {
+            id: "service_user_search_source",
+            label: "Service users (old id)",
+            description: "Searches the service users you can see; older id for lepton_service_users",
+            provider: LegacyServiceUserSearchSource
         }
     }
 }
@@ -56,10 +63,16 @@ mod ssr {
     use valence::ownership::OwnershipService;
     use valence::Valence;
 
+    use lepton_shell::people::sources::SERVICE_USERS;
+
     use super::{matches, SERVICE_USER_SEARCH_SOURCE_ID};
 
-    /// [`uf_search_core::SearchSourceProvider`] over the service users the caller can read.
+    /// [`uf_search_core::SearchSourceProvider`] over the service users the caller can read,
+    /// registered as `lepton_service_users`.
     pub struct ServiceUserSearchSource;
+
+    /// The same search registered under the older `service_user_search_source` id.
+    pub struct LegacyServiceUserSearchSource;
 
     /// Bare id of `rid`, without the table prefix.
     fn bare(rid: &valence::RecordId) -> String {
@@ -88,93 +101,114 @@ mod ssr {
             query_text: &'a str,
             max_results: u32,
         ) -> SearchSourceFuture<'a> {
-            Box::pin(async move {
-                // Only a signed-in person gets rows. A service user's token, System and
-                // anonymous callers get nothing, whatever Valence would let them read.
-                let Some(actor_id) = v
-                    .actor()
-                    .user_id()
-                    .map(|id| id.split_once(':').map_or(id, |(_, bare)| bare).to_string())
-                else {
-                    return Ok(Vec::new());
-                };
-                if max_results == 0 {
-                    return Ok(Vec::new());
-                }
-                let manage_any = match installed_service_user_gate() {
-                    Some(gate) => gate
-                        .may_manage_any_service_user(v)
-                        .await
-                        .map_err(|e| SearchSourceError::msg(e.to_string()))?,
-                    None => false,
-                };
-                let needle = query_text.trim().to_lowercase();
-                // In-memory backends only apply equality predicates, so fetch the rows the
-                // caller may read and filter here. Valence's read rule already scopes this to
-                // the caller's own service users (or every owner's, for an administrator). An
-                // undersized window would silently drop matches that sort after it, so take the
-                // whole readable set; the query clamps the fetch to the platform maximum.
-                let rows = ServiceUserAccount::query(
+            query_as(SERVICE_USERS, v, query_text, max_results)
+        }
+    }
+
+    impl uf_search_core::SearchSourceProvider for LegacyServiceUserSearchSource {
+        fn query<'a>(
+            &'a self,
+            v: &'a Valence,
+            query_text: &'a str,
+            max_results: u32,
+        ) -> SearchSourceFuture<'a> {
+            query_as(SERVICE_USER_SEARCH_SOURCE_ID, v, query_text, max_results)
+        }
+    }
+
+    /// The service user search, with each hit stamped with `source_id`.
+    fn query_as<'a>(
+        source_id: &'static str,
+        v: &'a Valence,
+        query_text: &'a str,
+        max_results: u32,
+    ) -> SearchSourceFuture<'a> {
+        Box::pin(async move {
+            // Only a signed-in person gets rows. A service user's token, System and
+            // anonymous callers get nothing, whatever Valence would let them read.
+            let Some(actor_id) = v
+                .actor()
+                .user_id()
+                .map(|id| id.split_once(':').map_or(id, |(_, bare)| bare).to_string())
+            else {
+                return Ok(Vec::new());
+            };
+            if max_results == 0 {
+                return Ok(Vec::new());
+            }
+            let manage_any = match installed_service_user_gate() {
+                Some(gate) => gate
+                    .may_manage_any_service_user(v)
+                    .await
+                    .map_err(|e| SearchSourceError::msg(e.to_string()))?,
+                None => false,
+            };
+            let needle = query_text.trim().to_lowercase();
+            // In-memory backends only apply equality predicates, so fetch the rows the
+            // caller may read and filter here. Valence's read rule already scopes this to
+            // the caller's own service users (or every owner's, for an administrator). An
+            // undersized window would silently drop matches that sort after it, so take the
+            // whole readable set; the query clamps the fetch to the platform maximum.
+            let rows = ServiceUserAccount::query(
                     v,
                     valence::use_!(r"In the **service user** search, we **list service users** so a person can pick one of their own (or any, for an administrator) and show it by display name and owner. Service users the person may not read are never included."),
                 )
                 .limit(valence::MAX_QUERY_LIMIT)
                 .await?;
 
-                let mut out = Vec::new();
-                for row in rows {
-                    let (Some(rid), Some(owner)) = (row.id(), row.user()) else {
-                        continue;
-                    };
-                    let id = bare(rid);
-                    let owner_id = bare(owner);
-                    // Defence in depth beside Valence's read rule: own rows, or all with
-                    // manage-any.
-                    if !manage_any && owner_id != actor_id {
-                        continue;
-                    }
-                    if !matches(&needle, row.display_name(), row.handle()) {
-                        continue;
-                    }
-                    // A deleted service user stays in query results until its deletion run
-                    // finishes; `ServiceUserAccount::get` hides it, so search must too.
-                    match OwnershipService::pending_deletion_gate("service_user_account", &id, v)
-                        .await
-                    {
-                        Ok(()) => {}
-                        Err(valence::Error::PendingDeletion(_)) => continue,
-                        Err(e) => return Err(e.into()),
-                    }
-                    let owner_label = if owner_id == actor_id {
-                        "you".to_string()
-                    } else {
-                        owner_name(v, &owner_id)
-                            .await
-                            .unwrap_or_else(|| "another user".to_string())
-                    };
-                    let paused = matches!(row.status(), ServiceUserAccountStatus::Suspended);
-                    out.push(SearchSourceItem {
-                        source_id: SERVICE_USER_SEARCH_SOURCE_ID.to_string(),
-                        id,
-                        title: row.display_name().clone(),
-                        description: Some(format!(
-                            "Owned by {owner_label}{}",
-                            if paused { " (paused)" } else { "" }
-                        )),
-                        kind: "service_user".to_string(),
-                    });
-                    if out.len() >= max_results as usize {
-                        break;
-                    }
+            let mut out = Vec::new();
+            for row in rows {
+                let (Some(rid), Some(owner)) = (row.id(), row.user()) else {
+                    continue;
+                };
+                let id = bare(rid);
+                let owner_id = bare(owner);
+                // Defence in depth beside Valence's read rule: own rows, or all with
+                // manage-any.
+                if !manage_any && owner_id != actor_id {
+                    continue;
                 }
-                Ok(out)
-            })
-        }
+                if !matches(&needle, row.display_name(), row.handle()) {
+                    continue;
+                }
+                // A deleted service user stays in query results until its deletion run
+                // finishes; `ServiceUserAccount::get` hides it, so search must too.
+                match OwnershipService::pending_deletion_gate("service_user_account", &id, v).await
+                {
+                    Ok(()) => {}
+                    Err(valence::Error::PendingDeletion(_)) => continue,
+                    Err(e) => return Err(e.into()),
+                }
+                let owner_label = if owner_id == actor_id {
+                    "you".to_string()
+                } else {
+                    owner_name(v, &owner_id)
+                        .await
+                        .unwrap_or_else(|| "another user".to_string())
+                };
+                let paused = matches!(row.status(), ServiceUserAccountStatus::Suspended);
+                out.push(SearchSourceItem {
+                    source_id: source_id.to_string(),
+                    id,
+                    title: row.display_name().clone(),
+                    description: Some(format!(
+                        "Owned by {owner_label}{}",
+                        if paused { " (paused)" } else { "" }
+                    )),
+                    kind: "service_user".to_string(),
+                    image_url: None,
+                });
+                if out.len() >= max_results as usize {
+                    break;
+                }
+            }
+            Ok(out)
+        })
     }
 }
 
 #[cfg(feature = "ssr")]
-pub use ssr::ServiceUserSearchSource;
+pub use ssr::{LegacyServiceUserSearchSource, ServiceUserSearchSource};
 
 #[cfg(all(test, feature = "ssr"))]
 mod tests;

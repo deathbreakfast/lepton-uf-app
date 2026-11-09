@@ -6,6 +6,7 @@ import {
   waitForAppReady,
 } from "./fixtures";
 import { FreshCodes } from "./helpers/fresh_totp";
+import { setSecret, useDarkModeFromDelivery } from "./helpers/delivery";
 
 type Page = import("@playwright/test").Page;
 type Request = import("@playwright/test").APIRequestContext;
@@ -61,10 +62,7 @@ async function openAsDeliveryAdmin(
 async function chooseSendGrid(page: Page, key: string, from: string, to: string) {
   const card = page.getByTestId("delivery-email-card");
   await card.getByRole("radio", { name: "SendGrid" }).check();
-  await page
-    .getByTestId("delivery-email-sendgrid-key")
-    .locator("input")
-    .fill(key);
+  await setSecret(page, "delivery-email-sendgrid-key", key);
   await page.getByTestId("delivery-email-from").locator("input").fill(from);
   await page.getByTestId("delivery-email-recipient").locator("input").fill(to);
 }
@@ -97,7 +95,7 @@ test.describe("pw-lepton-delivery-settings", () => {
     await expect(page.locator("body")).not.toContainText("lab-initial-twilio-secret");
 
     await chooseSendGrid(page, "SG.e2e-key-one", "cell@example.test", "ops@example.test");
-    await clickTestId(page, "delivery-email-save");
+    await clickTestId(page, "delivery-save");
     await confirmStepUp(page, await codes.next());
     await expect(page.getByTestId("delivery-email-outcome")).toContainText(
       "Email settings saved",
@@ -114,7 +112,7 @@ test.describe("pw-lepton-delivery-settings", () => {
     // After reload the key shows as set, and its value appears nowhere.
     await page.reload();
     await waitForAppReady(page);
-    await expect(page.getByTestId("delivery-email-card")).toContainText("Set, changed");
+    await expect(page.getByTestId("delivery-email-card")).toContainText("Set, rotated");
     await expect(page.locator("body")).not.toContainText("SG.e2e-key-one");
 
     // The change is live without a restart: a new sign-up's verification email
@@ -162,7 +160,7 @@ test.describe("pw-lepton-delivery-settings", () => {
     );
 
     // Saving runs the same test first, so it fails too and stores nothing.
-    await clickTestId(page, "delivery-email-save");
+    await clickTestId(page, "delivery-save");
     await confirmStepUp(page, await codes.next());
     await expect(page.getByTestId("delivery-email-outcome")).toContainText(
       "Nothing was saved",
@@ -182,7 +180,7 @@ test.describe("pw-lepton-delivery-settings", () => {
     const before = await selectedEmailDriver(page);
 
     await chooseSendGrid(page, "SG.never-saved", "cell@example.test", "ops@example.test");
-    await clickTestId(page, "delivery-email-save");
+    await clickTestId(page, "delivery-save");
     await confirmStepUp(page, "000000");
     await expect(
       page.getByTestId("step-up-dialog").getByTestId("step-up-error"),
@@ -194,5 +192,59 @@ test.describe("pw-lepton-delivery-settings", () => {
     await page.reload();
     await waitForAppReady(page);
     expect(await selectedEmailDriver(page)).toBe(before);
+  });
+
+  test("pw-lepton-delivery-settings-no-2fa-sad", async ({ page, request, auth }) => {
+    const email = `delivery-no2fa-${Date.now()}@example.com`;
+    await auth.signIn({ email, password: "CorrectHorseBattery1!", referer: "/user/account-settings" });
+    const added = await request.post("/api/test/delivery-admin", { data: { email } });
+    expect(added.status(), "admin group add").toBe(204);
+    await page.goto("/user/delivery");
+    await waitForAppReady(page);
+    await expect(page.getByTestId("delivery-email-card")).toBeVisible({ timeout: 60_000 });
+
+    // Save can't ask for a code the operator has no way to produce, so it
+    // points them at account security and sends nothing.
+    await expect(page.getByTestId("delivery-save-hint")).toContainText(
+      "Needs two-factor sign-in",
+      { timeout: 30_000 },
+    );
+    await clickTestId(page, "delivery-save");
+    const sheet = page.getByTestId("delivery-needs-two-factor");
+    await expect(sheet).toBeVisible({ timeout: 30_000 });
+    await expect(sheet).toContainText("Turn on two-factor sign-in to save changes here");
+    await expect(
+      sheet.getByTestId("delivery-needs-two-factor-link").getByRole("link", {
+        name: "Open account security",
+      }),
+    ).toHaveAttribute("href", /account-settings/);
+    await expect(page.getByTestId("step-up-dialog")).toHaveCount(0);
+  });
+
+  test("pw-lepton-delivery-settings-phone-dark", async ({ page, request, auth }, testInfo) => {
+    await openAsDeliveryAdmin(page, request, auth, "phone");
+    await useDarkModeFromDelivery(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByTestId("delivery-oauth-card")).toBeVisible();
+
+    // Nothing on the page is wider than the phone.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow at 390px").toBeLessThanOrEqual(0);
+
+    // Providers collapse to a list; tapping one opens its sheet.
+    const oauth = page.getByTestId("delivery-oauth-card");
+    await expect(oauth.getByTestId("data-table-list-view")).toBeVisible();
+    await oauth.getByTestId("data-table-list-card-google").click();
+    await expect(page.getByTestId("delivery-oauth-dialog")).toBeVisible({ timeout: 30_000 });
+    await page.screenshot({ path: testInfo.outputPath("delivery-phone-dark-oauth-sheet.png") });
+    await page.getByTestId("delivery-oauth-dialog").getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByTestId("delivery-oauth-dialog")).toBeHidden({ timeout: 30_000 });
+
+    await page.screenshot({
+      path: testInfo.outputPath("delivery-phone-dark.png"),
+      fullPage: true,
+    });
   });
 });

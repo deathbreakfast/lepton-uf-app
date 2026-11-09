@@ -10,11 +10,16 @@ use lepton_auth::delivery_settings::{
 };
 use leptos::prelude::*;
 
+use super::changes::{DeliveryChanges, DeliverySaveReport};
+
 #[cfg(feature = "ssr")]
 use std::sync::Arc;
 
 #[cfg(feature = "ssr")]
 use lepton_auth::delivery_settings::{DeliveryError, DeliverySettingsBackend};
+
+#[cfg(feature = "ssr")]
+use super::changes::SectionOutcome;
 
 #[cfg(feature = "ssr")]
 fn backend() -> Result<Arc<dyn DeliverySettingsBackend>, ServerFnError> {
@@ -151,6 +156,47 @@ pub async fn save_oauth_settings(
     #[cfg(not(feature = "ssr"))]
     {
         let _ = (candidate, totp_code);
+        Err(ServerFnError::new("server only"))
+    }
+}
+
+/// Save every changed section with one fresh authenticator code.
+///
+/// A code works once, so the page can't call the per-section saves one after
+/// another with the same code. This checks the code once, then saves email,
+/// text messages and sign-in providers in that order. Each section runs its own
+/// test send first and is saved or refused on its own; the report says which.
+#[uf_product_macros::server(permission = "LeptonManageDelivery", step_up = "fresh")]
+pub async fn save_delivery_settings(
+    /// Sections the operator changed.
+    changes: DeliveryChanges,
+    /// Fresh authenticator code.
+    totp_code: String,
+) -> Result<DeliverySaveReport, ServerFnError> {
+    #[cfg(feature = "ssr")]
+    {
+        require_fresh_code(&totp_code).await?;
+        let v = request_valence().await?;
+        let backend = backend()?;
+        let outcome = |r: Result<(), DeliveryError>| match r {
+            Ok(()) => SectionOutcome::Saved,
+            Err(e) => SectionOutcome::Failed(e.to_string()),
+        };
+        let mut report = DeliverySaveReport::default();
+        if let Some(c) = changes.email {
+            report.email = outcome(backend.save_email(&v, c).await);
+        }
+        if let Some(c) = changes.sms {
+            report.sms = outcome(backend.save_sms(&v, c).await);
+        }
+        if let Some(c) = changes.oauth {
+            report.oauth = outcome(backend.save_oauth(&v, c).await);
+        }
+        Ok(report)
+    }
+    #[cfg(not(feature = "ssr"))]
+    {
+        let _ = (changes, totp_code);
         Err(ServerFnError::new("server only"))
     }
 }

@@ -117,6 +117,8 @@ orbital-base-components = { git = "https://github.com/unified-field-dev/orbital"
 orbital-primitives = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-theme = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-datatable = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-data = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 
 valence = { package = "uf-valence", git = "https://github.com/unified-field-dev/valence", branch = "main", default-features = false, features = ["mem", "sqlite"] }
 valence-codegen = { package = "uf-valence-codegen", git = "https://github.com/unified-field-dev/valence", branch = "main" }
@@ -145,6 +147,7 @@ lepton-test-support = { git = "https://github.com/unified-field-dev/lepton", bra
 gauge = { git = "https://github.com/unified-field-dev/gauge", branch = "main", default-features = false }
 neutrino = { git = "https://github.com/unified-field-dev/neutrino", branch = "main", default-features = false }
 uf-lepton-delivery-boot = { git = "https://github.com/unified-field-dev/uf-oauth-boot", package = "uf-lepton-delivery-boot", branch = "main" }
+spectra = { package = "uf-spectra", git = "https://github.com/unified-field-dev/Spectra", branch = "main", default-features = false }
 lepton-shell = { path = "lepton-shell", default-features = false }
 lepton-auth-app = { path = "lepton-auth-app" }
 lepton-app = { path = "lepton-app" }
@@ -214,4 +217,3 @@ orbital-charts = { git = "https://github.com/unified-field-dev/orbital", branch 
 orbital-tree = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-scheduler = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
-

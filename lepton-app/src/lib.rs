@@ -211,7 +211,7 @@
 //! mounted; a Lepton service user gate installed at boot; a token service that can issue
 //! a token owned by a service user.
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use std::sync::{Arc, Mutex};
 //!
 //! use lepton_app::service_users::{
@@ -243,9 +243,8 @@
 //!     }
 //!
 //!     async fn can_grant_group(&self, v: &Valence, group_id: &str) -> Result<bool, ServiceUserAccessError> {
-//!         gauge::service::can_add_group_member_service_user(group_id, v)
-//!             .await
-//!             .map_err(|_| ServiceUserAccessError::Store { reason_class: "gauge_lookup" })
+//!         let _ = (v, group_id);
+//!         todo!("call your Gauge service: does the viewer own group_id?")
 //!     }
 //!
 //!     async fn grant_group(
@@ -255,9 +254,8 @@
 //!         group_id: &'static str,
 //!         choice: &'static str,
 //!     ) -> Result<(), ServiceUserAccessError> {
-//!         gauge::service::add_group_member_service_user(group_id, service_user, v)
-//!             .await
-//!             .map_err(|_| ServiceUserAccessError::NotGrantable { choice })
+//!         let _ = (v, service_user, group_id, choice);
+//!         todo!("add the service user to the Gauge group")
 //!     }
 //!
 //!     async fn mint_token(
@@ -286,7 +284,9 @@
 //! }
 //!
 //! // Inside the host's per-request context closure:
+//! # fn per_request_context() {
 //! provide_service_user_access_backend(Arc::new(SiteServiceUsers::default()));
+//! # }
 //! ```
 //!
 //! After this, `/user/service-users/new` offers "Read metrics". Picking it adds the service user
@@ -372,8 +372,9 @@ pub use appearance::AppearancePage;
 pub use confirm_account::ConfirmAccountPage;
 pub use connected_accounts_section::ConnectedAccountsSection;
 pub use delivery_settings::{
-    get_delivery_settings, rotate_totp_seal_key, save_email_settings, save_oauth_settings,
-    save_sms_settings, test_send_email, test_send_sms, DeliverySettingsPage,
+    get_delivery_settings, rotate_totp_seal_key, save_delivery_settings, save_email_settings,
+    save_oauth_settings, save_sms_settings, test_send_email, test_send_sms, DeliveryChanges,
+    DeliverySaveReport, DeliverySettingsPage, SectionOutcome,
 };
 pub use devices_section::SecurityDevicesSection;
 pub use layout::UserLayout;

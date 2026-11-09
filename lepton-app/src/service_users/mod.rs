@@ -5,7 +5,8 @@
 //! gives it. These pages let a
 //! signed-in person list their service users at `/user/service-users`, create one in three steps
 //! at `/user/service-users/new` (name it, choose access, get a token), see one at
-//! `/user/service-users/{service_user_id}` (its groups and permissions, and Pause and Resume),
+//! `/user/service-users/{service_user_id}` (its groups, permissions and tokens, with Pause, Resume, token Revoke and Rotate,
+//! group Remove, and Change access),
 //! and get another token at `/user/service-users/{service_user_id}/token`. The token is shown
 //! once and never again.
 //!
@@ -19,10 +20,12 @@
 //! Host setup and examples live on the crate root:
 //! [Install a service user access backend](crate#install-a-service-user-access-backend).
 
+mod change_access;
 mod create;
 mod detail;
 mod error;
 mod list_page;
+mod needs_authenticator;
 mod port;
 mod request_access;
 mod search;
@@ -33,11 +36,13 @@ mod types;
 
 pub use create::CreateServiceUserPage;
 pub use detail::{
-    delete_service_user, get_service_user_detail, pause_service_user, resume_service_user,
-    revoke_service_user_token, ServiceUserDetail, ServiceUserDetailPage,
+    delete_service_user, get_service_user_detail, pause_service_user,
+    remove_service_user_from_group, resume_service_user, revoke_service_user_token,
+    rotate_service_user_token, ServiceUserDetail, ServiceUserDetailPage,
 };
 pub use error::friendly_error;
 pub use list_page::{ServiceUserBadge, ServiceUsersPage};
+pub(crate) use needs_authenticator::use_authenticator_missing;
 #[cfg(feature = "ssr")]
 pub use port::{
     provide_service_user_access_backend, use_service_user_access_backend, MintedToken,
@@ -49,7 +54,7 @@ pub use port::{
     ServiceUserPermissionView, ServiceUserTokenView, SERVICE_USER_CREATORS_GROUP,
 };
 #[cfg(feature = "ssr")]
-pub use search::ServiceUserSearchSource;
+pub use search::{LegacyServiceUserSearchSource, ServiceUserSearchSource};
 pub use search::{ServiceUserSearchSourceId, SERVICE_USER_SEARCH_SOURCE_ID};
 pub use server::{
     check_service_user_handle, create_service_user_profile, get_service_user_row,

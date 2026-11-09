@@ -176,6 +176,7 @@ fn ServiceUserCard(service_user: ServiceUserRow, tokens_configured: bool) -> imp
         ServiceUserState::Paused => (BadgeColor::Warning, "Paused"),
     };
     let token_path = paths::service_users_token(&service_user.id);
+    let detail_path = format!("{}/{}", paths::SERVICE_USERS, service_user.id);
     let subtitle = format!(
         "{} · Created {}",
         service_user.display_name, service_user.created_on
@@ -187,7 +188,9 @@ fn ServiceUserCard(service_user: ServiceUserRow, tokens_configured: bool) -> imp
             <Card>
                 <CardHeader>
                     <Flex gap=FlexGap::Small align=FlexAlign::Center>
-                        <Body1Strong>{format!("@{}", service_user.handle)}</Body1Strong>
+                        <Link href=detail_path>
+                            <Body1Strong>{format!("@{}", service_user.handle)}</Body1Strong>
+                        </Link>
                         <ServiceUserBadge />
                     </Flex>
                     <CardHeaderDescription slot>
