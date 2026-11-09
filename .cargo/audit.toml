@@ -7,4 +7,6 @@
 # hickory-resolver = "^0.24", which caps it below that (lepton-uf-app depends
 # on lepton-smtp via lepton). Bump lepton-smtp's hickory-resolver range to
 # clear this -- this gate should stay red until then.
-ignore = ["RUSTSEC-2023-0071"]
+# RUSTSEC-2026-0459 (libsqlite3-sys 0.30 via sqlx-sqlite): temporary until the
+# fleet sqlx bump moves it to >=0.39.
+ignore = ["RUSTSEC-2023-0071", "RUSTSEC-2026-0459"]
