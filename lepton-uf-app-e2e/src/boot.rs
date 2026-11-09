@@ -95,7 +95,16 @@ impl DatabaseBackend for TolerantMemBackend {
         &self,
         compiled: &CompiledQuery,
     ) -> valence::Result<Vec<serde_json::Value>> {
-        let rows = self.inner.execute_compiled_query(compiled).await?;
+        let rows = match split_in_list(compiled) {
+            Some((without_where, field, wanted)) => self
+                .inner
+                .execute_compiled_query(&without_where)
+                .await?
+                .into_iter()
+                .filter(|row| row.get(&field).is_some_and(|v| wanted.contains(v)))
+                .collect(),
+            None => self.inner.execute_compiled_query(compiled).await?,
+        };
         if compiled
             .query_string
             .to_ascii_uppercase()
@@ -218,6 +227,49 @@ impl DatabaseBackend for TolerantMemBackend {
     ) -> valence::Result<()> {
         self.inner.apply_ttl_policy(table, policy).await
     }
+}
+
+/// `SELECT … WHERE <field> IN $<key>` with an array `key`, split into the query without
+/// its `WHERE`, the field, and the wanted values.
+///
+/// The mem row filter drops every row on an `IN` term, so Lepton's service user handle
+/// lookup (`WHERE handle_key IN $keys`) would find nothing and call every handle free.
+/// Only a `WHERE` that is exactly that one term is split; anything else goes through as is.
+fn split_in_list(
+    compiled: &CompiledQuery,
+) -> Option<(CompiledQuery, String, Vec<serde_json::Value>)> {
+    let query = compiled.query_string.trim();
+    let at = query.to_ascii_uppercase().find(" WHERE ")?;
+    let terms: Vec<&str> = query[at + " WHERE ".len()..].split_whitespace().collect();
+    let [field, op, param] = terms.as_slice() else {
+        return None;
+    };
+    let key = param.strip_prefix('$')?;
+    if !op.eq_ignore_ascii_case("IN")
+        || !field
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    {
+        return None;
+    }
+    let wanted = compiled
+        .params
+        .iter()
+        .find(|(k, _)| k == key)?
+        .1
+        .as_array()?
+        .clone();
+    let params = compiled
+        .params
+        .iter()
+        .filter(|(k, _)| k != key)
+        .cloned()
+        .collect();
+    Some((
+        CompiledQuery::new(query[..at].to_string(), params),
+        (*field).to_string(),
+        wanted,
+    ))
 }
 
 /// Lab defaults for first-boot env seeding, applied only when unset.
@@ -405,4 +457,60 @@ pub fn system_valence(
         })
         .build()
         .map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn backend_with_handles() -> TolerantMemBackend {
+        let backend = TolerantMemBackend::new();
+        for (id, key) in [("a", "clash0"), ("b", "other")] {
+            let _ = backend
+                .create_record(
+                    "service_user_account",
+                    serde_json::json!({ "id": id, "handle_key": key }),
+                )
+                .await;
+        }
+        backend
+    }
+
+    fn in_query(keys: serde_json::Value) -> CompiledQuery {
+        CompiledQuery::new(
+            "SELECT handle_key FROM service_user_account WHERE handle_key IN $keys".to_string(),
+            vec![("keys".to_string(), keys)],
+        )
+    }
+
+    #[tokio::test]
+    async fn in_list_finds_taken_handle_happy() {
+        let rows = backend_with_handles()
+            .await
+            .execute_compiled_query(&in_query(serde_json::json!(["clash0", "clash1"])))
+            .await
+            .unwrap_or_default();
+        let keys: Vec<_> = rows.iter().filter_map(|r| r.get("handle_key")).collect();
+        assert_eq!(keys, [&serde_json::json!("clash0")]);
+    }
+
+    #[tokio::test]
+    async fn in_list_free_handles_find_nothing_sad() {
+        let rows = backend_with_handles()
+            .await
+            .execute_compiled_query(&in_query(serde_json::json!(["free0", "free1"])))
+            .await
+            .unwrap_or_default();
+        assert_eq!(rows, Vec::<serde_json::Value>::new());
+    }
+
+    #[test]
+    fn in_list_leaves_other_where_clauses_alone_sad() {
+        let compiled = CompiledQuery::new(
+            "SELECT id FROM service_user_account WHERE handle_key = $key LIMIT 1".to_string(),
+            vec![("key".to_string(), serde_json::json!("clash0"))],
+        );
+        assert!(split_in_list(&compiled).is_none());
+        assert!(split_in_list(&in_query(serde_json::json!("not-a-list"))).is_none());
+    }
 }
