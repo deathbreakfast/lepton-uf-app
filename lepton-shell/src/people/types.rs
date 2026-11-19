@@ -72,16 +72,22 @@ impl PickedPrincipal {
 }
 
 /// A caller-supplied group of options, shown above People.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PickerGroup {
     /// Group header.
     pub label: String,
     /// Options in the order shown.
     pub options: Vec<PickerOption>,
+    /// Header naming where the rows come from, such as `People · Lepton users`. Replaces
+    /// `label` when the picker's `show_sources` is on.
+    pub caption: Option<String>,
+    /// What the group shows when none of its rows match, such as `No people match.`. Only
+    /// used when `show_sources` is on; without it an empty group is left out.
+    pub empty_text: Option<String>,
 }
 
 /// One caller-supplied option in a [`PickerGroup`].
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PickerOption {
     /// Id, unique within its group.
     pub id: String,
@@ -91,6 +97,9 @@ pub struct PickerOption {
     pub secondary: Option<String>,
     /// What the row and the picked chip draw, such as a brand `Tag`.
     pub chip: ViewFn,
+    /// The kind this row stands for. With `kind_badges` on, the row ends with that kind's
+    /// badge (Person, Team or Service user); the pick stays a [`PrincipalKind::Extra`].
+    pub kind: Option<PrincipalKind>,
 }
 
 impl PickerOption {
@@ -210,6 +219,7 @@ mod tests {
             label: "Author".into(),
             secondary: None,
             chip: ViewFn::default(),
+            kind: None,
         };
         let p = option.to_principal("From this event");
         assert_eq!(p.kind, PrincipalKind::Extra("From this event".into()));
