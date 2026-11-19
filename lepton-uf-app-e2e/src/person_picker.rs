@@ -69,12 +69,31 @@ fn event_fields() -> Vec<PickerGroup> {
                     </Badge>
                 }
             }),
+            kind: None,
         }],
+        ..Default::default()
     }]
 }
 
-/// Five pickers: single, multi (with exclusions), teams, service users, and people and
-/// teams with source captions and kind badges.
+/// One caller row, as a host that checks its own rows (Magnon's owners) would give it:
+/// a caption naming the source, empty-group text and a Person badge.
+fn checked_people() -> Vec<PickerGroup> {
+    vec![PickerGroup {
+        label: "People".to_string(),
+        options: vec![PickerOption {
+            id: "ines".to_string(),
+            label: "Ines Moreau".to_string(),
+            secondary: None,
+            chip: ViewFn::from(|| view! { <Body1>"Ines Moreau"</Body1> }),
+            kind: Some(PrincipalKind::User),
+        }],
+        caption: Some("People · Lepton users".to_string()),
+        empty_text: Some("No people match.".to_string()),
+    }]
+}
+
+/// Six pickers: single, multi (with exclusions), teams, service users, people and teams
+/// with source captions and kind badges, and caller rows only.
 #[component]
 pub fn PersonPickerDemoPage() -> impl IntoView {
     let query = use_query_map();
@@ -100,6 +119,7 @@ pub fn PersonPickerDemoPage() -> impl IntoView {
     let teams = RwSignal::new(Vec::new());
     let service_users = RwSignal::new(Vec::new());
     let sources = RwSignal::new(Vec::new());
+    let extra_only = RwSignal::new(Vec::new());
 
     view! {
         <UnifiedFieldShellLayout>
@@ -151,6 +171,18 @@ pub fn PersonPickerDemoPage() -> impl IntoView {
                             label="Owner"
                         />
                         <PickedReadout value=sources testid="pp-sources-value" />
+                    </DemoSection>
+                    <DemoSection title="Caller rows only" testid="pp-extra-only">
+                        <PersonPicker
+                            value=extra_only
+                            single=true
+                            people=false
+                            show_sources=true
+                            kind_badges=true
+                            extra_groups=Signal::derive(checked_people)
+                            label="Owner"
+                        />
+                        <PickedReadout value=extra_only testid="pp-extra-only-value" />
                     </DemoSection>
                 </Flex>
             </ContentContainer>

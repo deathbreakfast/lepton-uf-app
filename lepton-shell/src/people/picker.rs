@@ -83,8 +83,8 @@ fn with_pick(
 /// Server answers for the query, keyed by the query they answer.
 type Answers = RwSignal<Option<(String, Vec<PickedPrincipal>)>>;
 
-/// Searches 200 ms after `query` stops changing, once it has two characters. Stale
-/// answers are dropped.
+/// Searches 200 ms after `query` stops changing, once it has two characters and `kinds`
+/// isn't empty. Stale answers are dropped.
 fn debounced_search(
     query: RwSignal<String>,
     kinds: StoredValue<Vec<PrincipalKind>>,
@@ -97,7 +97,9 @@ fn debounced_search(
         generation.update_value(|g| *g += 1);
         let current = generation.get_value();
         search_error.set(None);
-        if !is_searchable(&q) {
+        // No searched kind means nothing to ask the server; the listing shows only the
+        // caller's groups.
+        if !is_searchable(&q) || kinds.with_value(Vec::is_empty) {
             results.set(None);
             return;
         }
@@ -196,7 +198,8 @@ pub fn PersonPicker(
     /// Rows shown disabled, such as existing members.
     #[prop(optional, into)]
     exclude: Signal<Vec<PickedPrincipal>>,
-    /// Caller-supplied groups shown above People.
+    /// Caller-supplied groups shown above People. With `people`, `teams` and
+    /// `service_users` all off, these are the only rows and the server is never asked.
     #[prop(optional, into)]
     extra_groups: Signal<Vec<PickerGroup>>,
     /// Input placeholder.
@@ -212,9 +215,11 @@ pub fn PersonPicker(
     #[prop(optional)]
     on_change: Option<Callback<Vec<PickedPrincipal>>>,
     /// Name each group's search source in its header, and show searched-but-empty groups.
+    /// Caller groups use their `caption` and `empty_text` when they set them.
     #[prop(default = false)]
     show_sources: bool,
-    /// End each row with a Person, Team or Service user badge.
+    /// End each row with a Person, Team or Service user badge. Caller rows get one when
+    /// their option sets `kind`.
     #[prop(default = false)]
     kind_badges: bool,
 ) -> impl IntoView {
