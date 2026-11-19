@@ -348,9 +348,10 @@ for (const look of LOOKS) {
       const ines = row(group, "Ines Moreau");
       await expect(ines.getByTestId("person-picker-badge")).toHaveText("Person");
       await expect(section(page, "pp-extra-only").getByTestId("person-picker-error")).toHaveCount(0);
+      // Checked while the list is open: a closing list fades its labels mid-transition.
+      await expectNoA11yViolations(page, `person picker caller rows (${look})`);
       await ines.click();
       await expect(page.getByTestId("pp-extra-only-value")).toHaveText("Ines Moreau (extra)");
-      await expectNoA11yViolations(page, `person picker caller rows (${look})`);
     });
 
     test(`pw-person-picker-defaults-unchanged-happy [${look}]`, async ({ page, request, auth }) => {
