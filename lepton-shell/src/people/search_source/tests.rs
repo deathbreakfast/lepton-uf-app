@@ -6,7 +6,9 @@ use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
-use lepton_identity::generated::{User, UserProfile, UserStatus, UserUserType};
+use lepton_identity::generated::{
+    FileFileStatus, ProfilePhoto, User, UserProfile, UserStatus, UserUserType,
+};
 use uf_search_core::{
     SearchSourceItem, SearchSourceKey, SearchSourceProvider, SearchSourceRegistry,
 };
@@ -17,7 +19,7 @@ use valence::{
 
 use super::rate_limit::{Bucket, RateLimiter, BURST};
 use super::rules::{looks_like_email, match_rank, short_id, SearchOutcome, MAX_PEOPLE};
-use super::{PeopleSearchSource, PeopleSearchSourceId};
+use super::{readable, PeopleSearchSource, PeopleSearchSourceId};
 use crate::people::sources;
 
 /// No results, for `assert_eq!` against a search.
@@ -111,6 +113,42 @@ async fn seed(system: &Valence, p: Person<'_>) {
     UserProfile::upsert(&profile_id, profile, system, valence::use_!(r"**Test:** Fixture **User Profile** save for the people search tests so a display name can be searched. CI and developers running the suite only."))
         .await
         .expect("seed profile");
+}
+
+/// **Test:** gives an already seeded person an active profile photo with `status`.
+async fn give_photo(system: &Valence, person_id: &str, display_name: &str, status: FileFileStatus) {
+    let now = Utc::now();
+    let profile_id = format!("profile{person_id}");
+    let photo_id = format!("photo{person_id}");
+    let photo = ProfilePhoto::new(
+        RecordId::new("user_profile", profile_id.as_str()),
+        None,
+        None,
+        "me.png".to_string(),
+        "png".to_string(),
+        "image/png".to_string(),
+        10,
+        format!("photos/{photo_id}.png"),
+        status,
+        RecordId::new("user", person_id),
+        now,
+    )
+    .expect("photo");
+    ProfilePhoto::upsert(&photo_id, photo, system, valence::use_!(r"**Test:** Fixture **Profile Photo** save for the people search tests so a profile has a photo in a known scan state. CI and developers running the suite only."))
+        .await
+        .expect("seed photo");
+    let profile = UserProfile::new(
+        RecordId::new("user", person_id),
+        "Legal Name Kept Private".to_string(),
+        display_name.to_string(),
+        now,
+        now,
+        Some(RecordId::new("profile_photo", photo_id.as_str())),
+    )
+    .expect("profile");
+    UserProfile::upsert(&profile_id, profile, system, valence::use_!(r"**Test:** Fixture **User Profile** save for the people search tests pointing the profile at its fixture photo. CI and developers running the suite only."))
+        .await
+        .expect("point profile at photo");
 }
 
 async fn search(v: &Valence, text: &str, max: u32) -> Vec<SearchSourceItem> {
@@ -277,6 +315,86 @@ async fn result_shape_is_name_short_id_and_user_kind() {
     assert_eq!(item.title, "Ada Lovelace");
     assert_eq!(item.description.as_deref(), Some("ada000"));
     assert_eq!(item.kind, "user");
+}
+
+#[tokio::test]
+async fn available_photo_gives_a_file_url_happy() {
+    let system = three_people().await;
+    give_photo(&system, ADA, "Ada Lovelace", FileFileStatus::Available).await;
+    let items = search(&as_user(&system, "viewer-photo"), "ada", 10).await;
+
+    assert_eq!(
+        items[0].image_url.as_deref(),
+        Some("/api/files/photoada0001aaaa")
+    );
+}
+
+#[tokio::test]
+async fn unscanned_or_quarantined_photo_gives_no_url_sad() {
+    let system = three_people().await;
+    give_photo(
+        &system,
+        ADA,
+        "Ada Lovelace",
+        FileFileStatus::PendingVirusScan,
+    )
+    .await;
+    give_photo(&system, GRACE, "Grace Hopper", FileFileStatus::Quarantined).await;
+    give_photo(
+        &system,
+        ALAN,
+        "Alan Turing",
+        FileFileStatus::VirusScanComplete,
+    )
+    .await;
+    let viewer = as_user(&system, "viewer-photo-sad");
+
+    for name in ["ada", "grace", "alan"] {
+        assert_eq!(search(&viewer, name, 10).await[0].image_url, None, "{name}");
+    }
+}
+
+#[tokio::test]
+async fn no_photo_or_a_missing_photo_record_gives_no_url_sad() {
+    let system = three_people().await;
+    // Grace's profile points at a photo row that was never written.
+    let now = Utc::now();
+    let profile = UserProfile::new(
+        RecordId::new("user", GRACE),
+        "Legal Name Kept Private".to_string(),
+        "Grace Hopper".to_string(),
+        now,
+        now,
+        Some(RecordId::new("profile_photo", "gone")),
+    )
+    .expect("profile");
+    UserProfile::upsert(&format!("profile{GRACE}"), profile, &system, valence::use_!(r"**Test:** Fixture **User Profile** save for the people search tests pointing at a photo that doesn't exist. CI and developers running the suite only."))
+        .await
+        .expect("dangling photo");
+    let viewer = as_user(&system, "viewer-no-photo");
+
+    assert_eq!(search(&viewer, "ada", 10).await[0].image_url, None);
+    assert_eq!(search(&viewer, "grace", 10).await[0].image_url, None);
+}
+
+#[test]
+fn photo_read_treats_missing_and_denied_as_no_photo_happy() {
+    let missing: Result<Option<()>, valence::Error> =
+        Err(valence::Error::NotFound("profile_photo:gone".into()));
+    let denied: Result<Option<()>, valence::Error> =
+        Err(valence::Error::Privacy("read denied".into()));
+
+    assert!(readable(missing).expect("missing is fine").is_none());
+    assert!(readable(denied).expect("denied is fine").is_none());
+    assert_eq!(readable(Ok(Some(7))).expect("found"), Some(7));
+}
+
+#[test]
+fn photo_read_surfaces_backend_errors_sad() {
+    let broken: Result<Option<()>, valence::Error> =
+        Err(valence::Error::Internal("backend unreachable".into()));
+
+    assert!(readable(broken).is_err());
 }
 
 #[tokio::test]
