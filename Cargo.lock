@@ -2654,8 +2654,12 @@ dependencies = [
 name = "lepton-shell"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "crc32fast",
+ "higgs",
+ "higgs-host",
+ "higgs-identity",
  "icondata",
  "inventory",
  "lepton-auth",
@@ -2663,6 +2667,7 @@ dependencies = [
  "lepton-identity",
  "leptos",
  "leptos_router",
+ "meson-leptos",
  "orbital-base-components",
  "orbital-core-components",
  "orbital-primitives",
