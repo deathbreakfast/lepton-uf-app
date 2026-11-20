@@ -86,11 +86,15 @@ fn groups_matching(query: &str) -> Vec<PickerGroup> {
         .map(|n| format!("Group {n:02}"))
         .filter(|name| name.to_lowercase().contains(&needle))
         .take(GROUPS_PER_QUERY)
-        .map(|name| PickerOption {
-            id: name.to_lowercase().replace(' ', "-"),
-            label: name,
-            secondary: None,
-            chip: ViewFn::from(|| view! { <span>"Group"</span> }),
+        .map(|name| {
+            // A caller row shows its chip, not its label, so the chip carries the name.
+            let shown = name.clone();
+            PickerOption {
+                id: name.to_lowercase().replace(' ', "-"),
+                label: name,
+                secondary: None,
+                chip: ViewFn::from(move || view! { <span>{shown.clone()}</span> }),
+            }
         })
         .collect();
     if options.is_empty() {
