@@ -1,6 +1,8 @@
 use lepton_auth::routes::parse_referer_from_search;
 use lepton_auth_ui::{AuthDialog, AuthDialogCallbacks, AuthDialogKind};
-use lepton_shell::{retain_frozen_post_auth_referer, sanitize_post_auth_navigate_path};
+use lepton_shell::{
+    retain_frozen_post_auth_referer, sanitize_post_auth_navigate_path, use_return_after_signin,
+};
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 use uf_product::use_auth_context;
@@ -11,7 +13,9 @@ use crate::pages::AuthPageShell;
 ///
 /// Freezes the first specific `referer` query value (see
 /// [`lepton_shell::retain_frozen_post_auth_referer`]) and calls `trigger_refresh` on
-/// success so gated `/user/*` routes pick up the authenticated session.
+/// success so gated `/user/*` routes pick up the authenticated session. After sign-in,
+/// [`lepton_shell::use_return_after_signin`] returns to the frozen referer when the
+/// server landed on its default page, and attaches it to confirm-account.
 #[component]
 pub fn AuthRouteHost(initial_kind: AuthDialogKind, test_id: &'static str) -> impl IntoView {
     let navigate = use_navigate();
@@ -31,9 +35,10 @@ pub fn AuthRouteHost(initial_kind: AuthDialogKind, test_id: &'static str) -> imp
 
     let auth_dialog_open = RwSignal::new(true);
     let auth_dialog_kind = RwSignal::new(initial_kind);
-    // Sign-in navigates to outcome `redirect_to` (confirm-account when email is
-    // unverified). Closing after success must not force the query referer.
+    // The form navigates to the outcome's `redirect_to` itself; the close effect below
+    // must not race it, so it only navigates when the dialog closes without success.
     let auth_finished = RwSignal::new(false);
+    let return_after_signin = use_return_after_signin(false);
 
     Effect::new(move |was_open: Option<bool>| {
         let open = auth_dialog_open.get();
@@ -51,6 +56,9 @@ pub fn AuthRouteHost(initial_kind: AuthDialogKind, test_id: &'static str) -> imp
         let auth = auth.clone();
         Callback::new(move |_| {
             auth.trigger_refresh();
+            if auth_dialog_kind.get_untracked() != AuthDialogKind::Logout {
+                return_after_signin(referer_path.get_untracked());
+            }
             auth_finished.set(true);
             auth_dialog_open.set(false);
         })

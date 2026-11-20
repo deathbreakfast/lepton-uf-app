@@ -445,6 +445,16 @@ fn auth_hosts_sanitize_referer_happy_path() {
         host.contains("trigger_refresh"),
         "AuthRouteHost must refresh the client session after sign-in so gated routes do not keep the anonymous gate"
     );
+    assert!(
+        host.contains("return_after_signin(referer_path.get_untracked())"),
+        "AuthRouteHost must return to the frozen referer after the sign-in redirect lands"
+    );
+    let shell = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/lib.rs"))
+        .expect("read lepton-shell lib.rs");
+    assert!(
+        shell.contains("return_after_signin(post_auth_referer.get_untracked())"),
+        "AppBarUserMenu must return to the dialog's snapshot after the sign-in redirect lands"
+    );
 }
 
 #[test]
