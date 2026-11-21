@@ -28,11 +28,16 @@ serde_json = { workspace = true, optional = true }
 serde = { workspace = true }
 inventory = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
+higgs = { workspace = true, optional = true }
+meson-leptos = { workspace = true, optional = true }
 # Force crc32fast 1.5.0 through the dylint graph (see workspace pin).
 crc32fast = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+anyhow = { workspace = true }
+higgs-host = { workspace = true }
+higgs-identity = { workspace = true }
 
 [lints]
 workspace = true
@@ -53,4 +58,8 @@ ssr = [
     "dep:spectra",
     "dep:serde_json",
     "dep:inventory",
-    "dep:chrono"]
+    "dep:chrono",
+    "dep:higgs",
+    "higgs/ssr",
+    "dep:meson-leptos",
+    "meson-leptos/ssr"]

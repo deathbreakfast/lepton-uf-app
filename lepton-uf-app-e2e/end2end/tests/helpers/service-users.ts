@@ -99,7 +99,9 @@ function isKnownWarningBadgeContrast(id: string, html: string): boolean {
 
 /** True for Orbital's default link, whose dark-mode text is below 4.5:1 on the card surface. */
 function isKnownDarkLinkContrast(id: string, html: string): boolean {
-  // orbital_link_dark_contrast_01
+  // orbital_link_dark_contrast_01: Orbital's dark --orb-color-brand-link token is
+  // below 4.5:1. Tracked as follow-up orb2-51-fu1 in Orbital; once it ships, bump
+  // the Orbital pin and delete this function.
   return id === "color-contrast" && html.includes("orbital-link");
 }
 

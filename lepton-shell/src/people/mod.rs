@@ -13,23 +13,39 @@
 //!
 //! Rows are Orbital `Persona`s grouped People, Teams and Service users. `single` makes a
 //! new pick replace the old one, `exclude` shows rows disabled (existing members, say)
-//! and `extra_groups` adds the caller's own options above People. `show_sources` names
+//! and `extra_groups` adds the caller's own options above People. To search your own
+//! source as the person types, pass a `query` signal and derive `extra_groups` from it:
+//!
+//! ```rust,ignore
+//! use lepton_shell::people::{PersonPicker, PickedPrincipal, PickerGroup};
+//! use leptos::prelude::*;
+//!
+//! let value = RwSignal::new(Vec::<PickedPrincipal>::new());
+//! let query = RwSignal::new(String::new());
+//! // `my_groups_matching` is the caller's own search, run for the current text.
+//! let groups = Signal::derive(move || my_groups_matching(&query.get()));
+//! view! { <PersonPicker value=value query=query extra_groups=groups /> };
+//! ```
+//!
+//! `show_sources` names
 //! each group's search source ("People · Lepton users") and keeps a searched group's
 //! header when it found nothing; `kind_badges` ends each row with a Person, Team or
 //! Service user badge. Both are off by default.
 //!
 //! The picker calls [`search_people`], which runs the `lepton_people`,
 //! `lepton_service_users` and `polaron_team` sources with the caller's Valence. A host
-//! that doesn't link a source gets no rows for it. Avatars show initials until the
-//! search results carry photos.
+//! that doesn't link a source gets no rows for it. The caller needs a Higgs session, and
+//! no axum-login layer is required. Rows and chips show a person's profile photo when it
+//! has passed the virus scan, and initials otherwise.
 //!
 //! ## The `lepton_people` source
 //!
 //! The `lepton_people` source finds signed-in users by display name: a case-insensitive
 //! match on the start of the name or the start of any word in it. Each result carries the
 //! display name as its title and the first six characters of the user id as a
-//! disambiguator. Results never include an email address or legal name. Profile photos
-//! aren't included yet: the search result type in uf-product gains an image field first.
+//! disambiguator. Results never include an email address or legal name. `image_url` is
+//! `/api/files/{id}` for the active profile photo when its file is `available`, and empty
+//! while it waits for a scan, after it's quarantined, or when there's no photo.
 //!
 //! [`sources`] holds the ids a picker passes to `uf_integrations::SearchSourcePicker`, for
 //! people and for the other principal kinds a person picker shows beside them:
