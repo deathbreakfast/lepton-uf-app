@@ -128,7 +128,7 @@ fn groups_matching(query: &str) -> Vec<PickerGroup> {
     }]
 }
 
-/// Six pickers: single, multi (with exclusions), teams, service users, and people and
+/// Seven pickers: single, multi (with exclusions), teams, service users, and people and
 /// teams with source captions and kind badges, caller rows only, and groups loaded for the
 /// typed query.
 #[component]
