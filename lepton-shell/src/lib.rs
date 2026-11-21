@@ -19,6 +19,8 @@
 //!   targets and AuthDialog referers. [Guide](#sanitize-post-auth-navigate-path)
 //! - **Frozen referer retention** — Keeps the gated path when WASM remounts rewrite the
 //!   live URL to `/auth/signin`. [Guide](#freeze-post-auth-referer)
+//! - **Return after sign-in** — Sends you back to the page and query you signed in
+//!   from, including through confirm-account. [Guide](#return-after-sign-in)
 //! - **People search** — The `lepton_people` search source finds people by display name
 //!   for person pickers, without emails. [`people::sources`] names it and
 //!   the service user and team sources. [Module docs](people)
@@ -178,6 +180,34 @@
 //! When `frozen` is not `"/"`, the frozen value wins; otherwise the incoming path is
 //! sanitized through [`sanitize_post_auth_navigate_path`].
 //!
+//! ## Return after sign-in
+//!
+//! The sign-in form navigates to the server's `redirect_to`, which is `/welcome` for a
+//! `"/"` referer and `/user/confirm-account` (with no return path) for an unverified email.
+//! [`post_signin_target`] decides whether to go on from there: back to the frozen
+//! referer, or to confirm-account with that referer attached. [`use_return_after_signin`]
+//! runs that check once the form's redirect lands. [`AppBarUserMenu`] and
+//! `lepton_auth_app::pages::AuthRouteHost` both call it from `on_success`.
+//!
+//! **Prerequisites:** a frozen referer from [`sanitize_post_auth_navigate_path`] or
+//! [`retain_frozen_post_auth_referer`].
+//!
+//! ```rust
+//! use lepton_shell::post_signin_target;
+//!
+//! let deep = "/tasks/42?tab=history";
+//! assert_eq!(post_signin_target(deep, "/welcome"), Some(deep.to_string()));
+//! assert_eq!(
+//!     post_signin_target(deep, "/user/confirm-account"),
+//!     Some("/user/confirm-account?referer=%2Ftasks%2F42%3Ftab%3Dhistory".to_string())
+//! );
+//! assert_eq!(post_signin_target(deep, deep), None);
+//! assert_eq!(post_signin_target("//evil.example", "/welcome"), None);
+//! ```
+//!
+//! An off-origin referer sanitizes to `"/"` and never causes a navigation, so the
+//! server's landing stands.
+//!
 //! ## Feature flags
 //!
 //! | Flag | Effect |
@@ -217,7 +247,58 @@ pub mod people;
 mod session_menu_items;
 use session_menu_items::SessionMenuItems;
 
-pub use navigate_path::{retain_frozen_post_auth_referer, sanitize_post_auth_navigate_path};
+pub use navigate_path::{
+    post_signin_target, retain_frozen_post_auth_referer, sanitize_post_auth_navigate_path,
+};
+
+/// Join a router pathname and `search` (with or without its leading `?`).
+fn path_with_search(pathname: &str, search: &str) -> String {
+    let search = search.trim_start_matches('?');
+    if search.is_empty() {
+        pathname.to_owned()
+    } else {
+        format!("{pathname}?{search}")
+    }
+}
+
+/// Return to the page sign-in started from once the sign-in form's own redirect lands.
+///
+/// See the crate guide [Return after sign-in](index.html#return-after-sign-in).
+/// Call from a component body under a `<Router>`, then run the returned closure with the
+/// frozen referer from `AuthDialog`'s `on_success`. `SigninContent` navigates to the
+/// server's `redirect_to` right after `on_success`, which can unmount the caller, so the
+/// check runs on the next animation frame with router-level handles. When
+/// [`post_signin_target`] picks another page, it replaces the history entry so Back
+/// skips the intermediate landing.
+///
+/// With `stay_on_root`, a `"/"` referer also undoes the `/welcome` default: the in-shell
+/// dialog was opened on `/` and should leave you there.
+pub fn use_return_after_signin(stay_on_root: bool) -> impl Fn(String) + Clone + 'static {
+    let navigate = use_navigate();
+    let location = use_location();
+    move |referer: String| {
+        let navigate = navigate.clone();
+        request_animation_frame(move || {
+            let landed = path_with_search(
+                &location.pathname.get_untracked(),
+                &location.search.get_untracked(),
+            );
+            let target = post_signin_target(&referer, &landed).or_else(|| {
+                (stay_on_root && referer == "/" && landed == navigate_path::WELCOME)
+                    .then(|| "/".to_string())
+            });
+            if let Some(target) = target {
+                navigate(
+                    &target,
+                    leptos_router::NavigateOptions {
+                        replace: true,
+                        ..Default::default()
+                    },
+                );
+            }
+        });
+    }
+}
 
 /// Signed-in/anonymous avatar menu for the host app bar.
 ///
@@ -245,14 +326,10 @@ pub fn AppBarUserMenu() -> impl IntoView {
     let auth = use_auth_context();
     let session = auth.session();
     let user_label = Memo::new(move |_| session.with(|session| session.display_label()));
-    let current_path = Memo::new(move |_| {
-        let mut path = location.pathname.get();
-        let search = location.search.get();
-        if !search.is_empty() {
-            path.push_str(&search);
-        }
-        path
-    });
+    // Router `search` has no leading `?`; without it a deep link's query glues onto
+    // the path (`/tasks/1tab=history`).
+    let current_path =
+        Memo::new(move |_| path_with_search(&location.pathname.get(), &location.search.get()));
 
     // Prefer the shell-provided controller so route gates open this same dialog.
     let controller =
@@ -290,6 +367,7 @@ pub fn AppBarUserMenu() -> impl IntoView {
         auth_dialog_intent.set(AuthDialogIntent::Signup);
     });
     let pending_session_refresh = RwSignal::new(false);
+    let return_after_signin = use_return_after_signin(true);
     let refresh_and_close = {
         let auth = auth.clone();
         Callback::new(move |_| {
@@ -297,6 +375,7 @@ pub fn AppBarUserMenu() -> impl IntoView {
             if auth_dialog_intent.get_untracked() == AuthDialogIntent::Logout {
                 controller.close();
             } else {
+                return_after_signin(post_auth_referer.get_untracked());
                 pending_session_refresh.set(true);
             }
         })

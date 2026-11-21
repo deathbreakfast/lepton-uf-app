@@ -50,7 +50,7 @@ mod metric {
 mod ssr {
     use std::time::Instant;
 
-    use lepton_identity::generated::{User, UserProfile, UserStatus};
+    use lepton_identity::generated::{ProfilePhoto, User, UserProfile, UserStatus};
     use uf_search_core::{SearchSourceError, SearchSourceFuture, SearchSourceItem};
     use valence::ownership::OwnershipService;
     use valence::{Model, Valence};
@@ -92,6 +92,39 @@ mod ssr {
                 Some(UserStatus::Disabled | UserStatus::PendingVerification)
             ),
         })
+    }
+
+    /// Photo URL for the profile's active photo: `/api/files/{id}` only when the file is
+    /// `available`, so quarantined or unscanned photos fall back to initials.
+    async fn photo_url(
+        v: &Valence,
+        profile: &UserProfile,
+    ) -> Result<Option<String>, SearchSourceError> {
+        let Some(photo_id) = profile.active_photo() else {
+            return Ok(None);
+        };
+        let photo = ProfilePhoto::get(
+            &bare(photo_id),
+            v,
+            valence::use_!(r"In **people search**, we **read the status of the person's active profile photo** so a person picker can show their photo instead of initials. Only photos that passed the virus scan are linked."),
+        )
+        .await;
+        Ok(readable(photo)?.and_then(|photo| {
+            let id = photo.id().map(bare)?;
+            meson_leptos::meson_image_src_for_status(&id, photo.file_status().as_str())
+        }))
+    }
+
+    /// A photo that is gone or that the viewer may not read counts as no photo; any other
+    /// failure is a real error.
+    pub(super) fn readable<T>(
+        read: Result<Option<T>, valence::Error>,
+    ) -> Result<Option<T>, SearchSourceError> {
+        match read {
+            Ok(found) => Ok(found),
+            Err(valence::Error::NotFound(_) | valence::Error::Privacy(_)) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn search(
@@ -167,7 +200,7 @@ mod ssr {
                 title: profile.display_name().trim().to_string(),
                 description: Some(short_id(&user_id)),
                 kind: "user".to_string(),
-                image_url: None,
+                image_url: photo_url(v, &profile).await?,
             });
             if out.len() >= cap {
                 break;
@@ -195,6 +228,8 @@ mod ssr {
     }
 }
 
+#[cfg(all(test, feature = "ssr"))]
+use ssr::readable;
 #[cfg(feature = "ssr")]
 pub use ssr::PeopleSearchSource;
 

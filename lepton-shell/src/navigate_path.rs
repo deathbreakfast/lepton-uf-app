@@ -4,7 +4,13 @@
 //! open-redirect bypasses (control characters, `://` smuggling) that some
 //! browsers treat as off-origin navigations.
 
-use lepton_auth::routes::sanitize_referer_path;
+use lepton_auth::paths::USER_CONFIRM_ACCOUNT;
+use lepton_auth::routes::{
+    confirm_account_path_with_referer, parse_referer_from_search, sanitize_referer_path,
+};
+
+/// Default landing `lepton-auth` picks when the sign-in referer is `"/"`.
+pub const WELCOME: &str = "/welcome";
 
 /// Sanitize a post-auth redirect / AuthDialog referer for in-app navigation.
 ///
@@ -35,6 +41,39 @@ pub fn retain_frozen_post_auth_referer(frozen: &str, incoming: &str) -> String {
     }
 }
 
+/// Decide where to go once the sign-in form has navigated to the server's `redirect_to`.
+///
+/// See the crate guide [Return after sign-in](index.html#return-after-sign-in).
+/// `referer` is the path frozen when sign-in started; `landed` is the path and query
+/// the form navigated to. Returns `None` to stay on `landed`.
+///
+/// - Confirm-account without its own `referer` gets the frozen referer attached, so
+///   finishing the funnel still returns to the starting page.
+/// - The default landings (`/welcome`, `/`) give way to a specific frozen referer.
+/// - Anything else is the server's choice and stays.
+///
+/// Both inputs go through [`sanitize_post_auth_navigate_path`], so an off-origin
+/// referer counts as `"/"` and never produces a navigation.
+#[must_use]
+pub fn post_signin_target(referer: &str, landed: &str) -> Option<String> {
+    let referer = sanitize_post_auth_navigate_path(Some(referer.to_string()));
+    if referer == "/" {
+        return None;
+    }
+    let (landed_path, landed_search) = landed.split_once('?').unwrap_or((landed, ""));
+    if landed_path == USER_CONFIRM_ACCOUNT {
+        if parse_referer_from_search(landed_search).is_some() {
+            return None;
+        }
+        return Some(confirm_account_path_with_referer(&referer));
+    }
+    let landed = sanitize_post_auth_navigate_path(Some(landed.to_string()));
+    if (landed == "/" || landed == WELCOME) && landed != referer {
+        return Some(referer);
+    }
+    None
+}
+
 /// Extra checks beyond lepton-auth: ASCII controls/whitespace and `://` smuggling.
 fn is_extra_safe_in_app_path(path: &str) -> bool {
     if !path.starts_with('/') || path.starts_with("//") {
@@ -55,7 +94,7 @@ fn is_extra_safe_in_app_path(path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_extra_safe_in_app_path, retain_frozen_post_auth_referer,
+        is_extra_safe_in_app_path, post_signin_target, retain_frozen_post_auth_referer,
         sanitize_post_auth_navigate_path,
     };
 
@@ -129,5 +168,57 @@ mod tests {
             "/gate/auth-required"
         );
         assert_eq!(retain_frozen_post_auth_referer("/", "/auth/signin"), "/");
+    }
+
+    #[test]
+    fn post_signin_target_returns_to_deep_link_with_query_happy() {
+        let deep = "/gate/auth-required?tab=history&x=1";
+        assert_eq!(post_signin_target(deep, "/welcome"), Some(deep.to_string()));
+        assert_eq!(post_signin_target(deep, "/"), Some(deep.to_string()));
+    }
+
+    #[test]
+    fn post_signin_target_stays_when_already_on_referer_happy() {
+        let deep = "/gate/auth-required?tab=history";
+        assert_eq!(post_signin_target(deep, deep), None);
+        assert_eq!(post_signin_target("/", "/"), None);
+    }
+
+    #[test]
+    fn post_signin_target_carries_referer_through_confirm_account_happy() {
+        assert_eq!(
+            post_signin_target("/gate/auth-required?tab=history", "/user/confirm-account"),
+            Some("/user/confirm-account?referer=%2Fgate%2Fauth-required%3Ftab%3Dhistory".into())
+        );
+        assert_eq!(
+            post_signin_target("/tag", "/user/confirm-account?referer=%2Ftag"),
+            None
+        );
+    }
+
+    #[test]
+    fn post_signin_target_keeps_server_choice_without_referer_happy() {
+        assert_eq!(post_signin_target("/", "/welcome"), None);
+        assert_eq!(post_signin_target("/", "/user/confirm-account"), None);
+        assert_eq!(post_signin_target("/tag", "/user/profile"), None);
+    }
+
+    #[test]
+    fn post_signin_target_ignores_off_origin_referers_sad() {
+        for evil in [
+            "//evil.example",
+            "/\\evil.example",
+            "/https://evil.example",
+            "/\tevil.example",
+            "/auth/signin",
+            "https://evil.example/x",
+        ] {
+            assert_eq!(post_signin_target(evil, "/welcome"), None, "{evil}");
+            assert_eq!(
+                post_signin_target(evil, "/user/confirm-account"),
+                None,
+                "{evil}"
+            );
+        }
     }
 }

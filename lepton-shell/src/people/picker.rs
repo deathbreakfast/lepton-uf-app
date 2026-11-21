@@ -202,6 +202,11 @@ pub fn PersonPicker(
     /// `service_users` all off, these are the only rows and the server is never asked.
     #[prop(optional, into)]
     extra_groups: Signal<Vec<PickerGroup>>,
+    /// Typed text. Pass your own signal to load `extra_groups` for what's typed, such as
+    /// a search over a list too long to send whole. A picked caller row that drops out of
+    /// the groups keeps its chip label but shows initials instead of its own chip media.
+    #[prop(optional)]
+    query: Option<RwSignal<String>>,
     /// Input placeholder.
     #[prop(optional, into)]
     placeholder: MaybeProp<String>,
@@ -224,7 +229,7 @@ pub fn PersonPicker(
     kind_badges: bool,
 ) -> impl IntoView {
     let kinds = StoredValue::new(searched_kinds(people, teams, service_users));
-    let query = RwSignal::new(String::new());
+    let query = query.unwrap_or_else(|| RwSignal::new(String::new()));
     let selected = RwSignal::new(Vec::<String>::new());
     let recent = RwSignal::new(Vec::<PickedPrincipal>::new());
     // Rows the list has offered. Single mode writes the option's text into the box before
