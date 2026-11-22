@@ -303,6 +303,9 @@ pub fn PersonPicker(
         disabled,
         clearable: false,
         multiselect: Signal::from(!single),
+        // The sources already matched on the server; a team found by id has no query
+        // text in its title and would otherwise be hidden.
+        disable_filter: true,
         ..Default::default()
     };
 

@@ -51,9 +51,10 @@ mod ssr {
     use std::time::Instant;
 
     use lepton_identity::generated::{ProfilePhoto, User, UserProfile, UserStatus};
+    use lepton_identity::service_users::{active_service_user_owner, ServiceUserId};
     use uf_search_core::{SearchSourceError, SearchSourceFuture, SearchSourceItem};
     use valence::ownership::OwnershipService;
-    use valence::{Model, Valence};
+    use valence::{Actor, Model, Valence};
 
     use super::metric::LeptonPeopleSearchTotalRecorder;
     use super::rate_limit::PEOPLE_SEARCH_LIMITER;
@@ -64,6 +65,9 @@ mod ssr {
 
     /// [`uf_search_core::SearchSourceProvider`] over people's display names. Runs with the
     /// caller's request Valence and never switches to a system actor.
+    ///
+    /// An active registered service user lists people as its owner would, under its own
+    /// Valence.
     pub struct PeopleSearchSource;
 
     /// Bare id of `rid`, without the table prefix.
@@ -127,6 +131,28 @@ mod ssr {
         }
     }
 
+    /// Bare user id the caller lists people as.
+    ///
+    /// A signed-in user lists as themselves and an active registered service user as its
+    /// owner. System, anonymous, built-in service users and suspended or deleted service
+    /// users get `None`. The Valence actor stays as it is.
+    async fn listing_owner(v: &Valence) -> Option<String> {
+        let actor = v.actor();
+        let user = match ServiceUserId::from_actor(actor) {
+            Some(service_user) => active_service_user_owner(service_user.as_str(), v).await?,
+            None => actor.clone(),
+        };
+        let Actor::User { user_id } = user else {
+            return None;
+        };
+        Some(
+            user_id
+                .split_once(':')
+                .map_or(user_id.as_str(), |(_, bare)| bare)
+                .to_string(),
+        )
+    }
+
     async fn search(
         v: &Valence,
         query_text: &str,
@@ -135,12 +161,8 @@ mod ssr {
         SearchOutcome,
         Result<Vec<SearchSourceItem>, SearchSourceError>,
     ) {
-        // Only a signed-in person gets rows; System and anonymous callers get nothing.
-        let Some(actor_id) = v
-            .actor()
-            .user_id()
-            .map(|id| id.split_once(':').map_or(id, |(_, bare)| bare).to_string())
-        else {
+        // Only a signed-in person, or an active service user acting for one, gets rows.
+        let Some(actor_id) = listing_owner(v).await else {
             return (SearchOutcome::Anonymous, Ok(Vec::new()));
         };
         let query = query_text.trim().to_lowercase();
