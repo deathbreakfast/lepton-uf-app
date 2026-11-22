@@ -8,8 +8,8 @@ ignore = [
     { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; transitive via leptos_macro" },
     { id = "RUSTSEC-2023-0071", reason = "rsa Marvin Attack timing sidechannel, no fixed upgrade available upstream; transitive via sqlx-mysql" },
     { id = "RUSTSEC-2026-0459", reason = "libsqlite3-sys 0.30 via sqlx-sqlite; temporary until the fleet sqlx bump moves it to >=0.39" },
-    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained, no fixed release; temporary until the stack moves off chrono (security:RUSTSEC-2026-0543)" },
-    { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained, no fixed release; temporary until the stack moves off chrono (security:RUSTSEC-2026-0543)" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained, no fixed release; temporary until the fleet moves to jiff or time (security:RUSTSEC-2026-0543)" },
+    { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained, no fixed release; temporary until the fleet moves to jiff or time (security:RUSTSEC-2026-0543)" },
 ]
 
 [licenses]

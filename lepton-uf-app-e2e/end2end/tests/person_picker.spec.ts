@@ -1,8 +1,8 @@
 /**
  * PersonPicker on `/dev/person-picker`: search, single and multi picks, excluded rows,
- * the empty box, the keyboard path, source captions with kind badges, and a picker of
- * caller rows only that never searches. Every scenario runs on a desktop in light mode,
- * on a phone, and on a desktop in dark mode.
+ * the empty box, the keyboard path, source captions with kind badges, a picker of caller
+ * rows only that never searches, and caller groups loaded for the typed query. Every
+ * scenario runs on a desktop in light mode, on a phone, and on a desktop in dark mode.
  */
 import { test, expect, waitForAppReady } from "./fixtures";
 import {
@@ -352,6 +352,28 @@ for (const look of LOOKS) {
       await expectNoA11yViolations(page, `person picker caller rows (${look})`);
       await ines.click();
       await expect(page.getByTestId("pp-extra-only-value")).toHaveText("Ines Moreau (extra)");
+    });
+
+    test(`pw-person-picker-query-groups-happy [${look}]`, async ({ page, auth }) => {
+      await openDemo(page, auth, look);
+
+      // The stand-in source returns fifty groups per query; typing reaches group 55.
+      const list = await search(page, "pp-groups", "Group 55");
+      const group = row(list, "Group 55");
+      await expect(group).toBeVisible();
+      await expect(list.getByTestId("person-picker-row")).toHaveCount(1);
+      await group.click();
+      await expect(chips(page, "pp-groups")).toHaveCount(1);
+      await expect(page.getByTestId("pp-groups-value")).toHaveText("Group 55 (extra)");
+    });
+
+    test(`pw-person-picker-query-groups-sad [${look}]`, async ({ page, auth }) => {
+      await openDemo(page, auth, look);
+
+      const list = await search(page, "pp-groups", "zzz");
+      await expect(list).not.toContainText("Permission groups");
+      await expect(list.getByTestId("person-picker-row")).toHaveCount(0);
+      await expect(chips(page, "pp-groups")).toHaveCount(0);
     });
 
     test(`pw-person-picker-defaults-unchanged-happy [${look}]`, async ({ page, request, auth }) => {

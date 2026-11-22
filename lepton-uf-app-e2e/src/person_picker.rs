@@ -92,8 +92,45 @@ fn checked_people() -> Vec<PickerGroup> {
     }]
 }
 
-/// Six pickers: single, multi (with exclusions), teams, service users, people and teams
-/// with source captions and kind badges, and caller rows only.
+/// Sixty permission groups, standing in for a caller's own source.
+const LAB_GROUPS: usize = 60;
+/// How many groups the stand-in source returns per query.
+const GROUPS_PER_QUERY: usize = 50;
+
+/// The stand-in source: the first fifty groups whose name holds `query`, as a caller
+/// would load them for each typed query.
+fn groups_matching(query: &str) -> Vec<PickerGroup> {
+    let needle = query.trim().to_lowercase();
+    let options: Vec<PickerOption> = (1..=LAB_GROUPS)
+        .map(|n| format!("Group {n:02}"))
+        .filter(|name| name.to_lowercase().contains(&needle))
+        .take(GROUPS_PER_QUERY)
+        .map(|name| {
+            // A caller row shows its chip, not its label, so the chip carries the name.
+            let shown = name.clone();
+            PickerOption {
+                id: name.to_lowercase().replace(' ', "-"),
+                label: name,
+                secondary: None,
+                chip: ViewFn::from(move || view! { <span>{shown.clone()}</span> }),
+                kind: None,
+            }
+        })
+        .collect();
+    if options.is_empty() {
+        return Vec::new();
+    }
+    vec![PickerGroup {
+        label: "Permission groups".to_string(),
+        options,
+        caption: None,
+        empty_text: None,
+    }]
+}
+
+/// Seven pickers: single, multi (with exclusions), teams, service users, and people and
+/// teams with source captions and kind badges, caller rows only, and groups loaded for the
+/// typed query.
 #[component]
 pub fn PersonPickerDemoPage() -> impl IntoView {
     let query = use_query_map();
@@ -120,6 +157,8 @@ pub fn PersonPickerDemoPage() -> impl IntoView {
     let service_users = RwSignal::new(Vec::new());
     let sources = RwSignal::new(Vec::new());
     let extra_only = RwSignal::new(Vec::new());
+    let groups = RwSignal::new(Vec::new());
+    let groups_query = RwSignal::new(String::new());
 
     view! {
         <UnifiedFieldShellLayout>
@@ -184,8 +223,42 @@ pub fn PersonPickerDemoPage() -> impl IntoView {
                         />
                         <PickedReadout value=extra_only testid="pp-extra-only-value" />
                     </DemoSection>
+                    <DemoSection title="Groups searched as you type" testid="pp-groups">
+                        <PersonPicker
+                            value=groups
+                            people=false
+                            query=groups_query
+                            extra_groups=Signal::derive(move || groups_matching(&groups_query.get()))
+                            label="Permission group"
+                        />
+                        <PickedReadout value=groups testid="pp-groups-value" />
+                    </DemoSection>
                 </Flex>
             </ContentContainer>
         </UnifiedFieldShellLayout>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn labels(groups: &[PickerGroup]) -> Vec<&str> {
+        groups
+            .iter()
+            .flat_map(|g| &g.options)
+            .map(|o| o.label.as_str())
+            .collect()
+    }
+
+    #[test]
+    fn typed_query_reaches_groups_past_the_first_fifty_happy() {
+        assert_eq!(labels(&groups_matching("")).len(), GROUPS_PER_QUERY);
+        assert_eq!(labels(&groups_matching("group 55")), vec!["Group 55"]);
+    }
+
+    #[test]
+    fn unmatched_query_returns_no_group_sad() {
+        assert!(groups_matching("zzz").is_empty());
     }
 }

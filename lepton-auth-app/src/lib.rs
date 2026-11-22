@@ -68,7 +68,9 @@
 //! [`pages::AuthRouteHost`] wraps sign-in, sign-up, and logout routes. It freezes the
 //! first specific `referer` query value with [`lepton_shell::retain_frozen_post_auth_referer`]
 //! so WASM remounts onto `/auth/signin` cannot drop the gated return path. On auth success
-//! it calls `trigger_refresh` so `/user/*` gates see the authenticated session.
+//! it calls `trigger_refresh` so `/user/*` gates see the authenticated session, then
+//! [`lepton_shell::use_return_after_signin`] takes you back to the frozen referer (query
+//! included) if the server landed on `/welcome` or on confirm-account without it.
 //!
 //! **Prerequisites:** `lepton-shell` on the SSR graph; session context from `uf_product`.
 //!
