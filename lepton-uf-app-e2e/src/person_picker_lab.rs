@@ -19,7 +19,7 @@ struct LabTeam {
 static LAB_TEAMS: Mutex<Vec<LabTeam>> = Mutex::new(Vec::new());
 
 /// Stand-in for Polaron's team search: teams whose name has a word starting with the
-/// query, for signed-in callers only.
+/// query, or whose id is the query, for signed-in callers only.
 pub struct LabTeamSearchSource;
 
 uf_product_macros::define_search_sources! {
@@ -39,6 +39,11 @@ fn word_starts_with(name: &str, needle: &str) -> bool {
         .any(|word| word.starts_with(needle))
 }
 
+/// Polaron also answers a team by its id, so a match's title need not hold the query.
+fn team_matches(team: &LabTeam, needle: &str) -> bool {
+    team.id == needle || word_starts_with(&team.name, needle)
+}
+
 impl uf_search_core::SearchSourceProvider for LabTeamSearchSource {
     fn query<'a>(
         &'a self,
@@ -56,7 +61,7 @@ impl uf_search_core::SearchSourceProvider for LabTeamSearchSource {
             })?;
             Ok(teams
                 .iter()
-                .filter(|t| word_starts_with(&t.name, &needle))
+                .filter(|t| team_matches(t, &needle))
                 .take(max_results as usize)
                 .map(|t| SearchSourceItem {
                     source_id: lepton_shell::people::sources::TEAMS.to_string(),
@@ -153,7 +158,7 @@ pub async fn person_picker_lab(
 
 #[cfg(test)]
 mod tests {
-    use super::word_starts_with;
+    use super::{team_matches, word_starts_with, LabTeam};
 
     #[test]
     fn team_matches_word_start_happy() {
@@ -163,5 +168,25 @@ mod tests {
     #[test]
     fn team_ignores_mid_word_match_sad() {
         assert!(!word_starts_with("Atlas Platform crew", "form"));
+    }
+
+    fn atlas() -> LabTeam {
+        LabTeam {
+            id: "team-7".to_string(),
+            name: "Atlas crew".to_string(),
+            members: 3,
+        }
+    }
+
+    #[test]
+    fn team_matches_its_id_happy() {
+        assert!(team_matches(&atlas(), "team-7"));
+        assert!(team_matches(&atlas(), "atl"));
+    }
+
+    #[test]
+    fn team_ignores_part_of_an_id_sad() {
+        assert!(!team_matches(&atlas(), "team-"));
+        assert!(!team_matches(&atlas(), "team-70"));
     }
 }

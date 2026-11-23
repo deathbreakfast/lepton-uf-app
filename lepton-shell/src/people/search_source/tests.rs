@@ -9,6 +9,7 @@ use chrono::Utc;
 use lepton_identity::generated::{
     FileFileStatus, ProfilePhoto, User, UserProfile, UserStatus, UserUserType,
 };
+use lepton_identity::service_users::ServiceUserId;
 use uf_search_core::{
     SearchSourceItem, SearchSourceKey, SearchSourceProvider, SearchSourceRegistry,
 };
@@ -426,6 +427,95 @@ async fn anonymous_and_system_callers_get_nothing() {
             .len(),
         1
     );
+}
+
+/// **Test:** stores a `service_user_account` row straight in the backend (System may not
+/// create service users through the model) and returns the service user's Valence.
+async fn service_user(system: &Valence, row: serde_json::Value) -> Valence {
+    let id = ServiceUserId::new_v4();
+    let backend = system
+        .backend_for_table("service_user_account")
+        .expect("backend");
+    valence::upsert_record(
+        backend.as_ref(),
+        "service_user_account",
+        id.as_str(),
+        row,
+        valence::use_!(r"**Test:** Fixture **service user** row for the people search tests so a service user has a known owner and status. CI and developers running the suite only."),
+    )
+    .await
+    .expect("seed service user");
+    system.with_actor(id.actor())
+}
+
+fn service_user_row(owner: &str, status: &str) -> serde_json::Value {
+    serde_json::json!({
+        "user": format!("user:{owner}"),
+        "owner_kind": "user",
+        "handle": "people-bot",
+        "handle_key": "peoplebot",
+        "display_name": "People bot",
+        "status": status,
+    })
+}
+
+#[tokio::test]
+async fn active_service_user_finds_its_owners_people_happy() {
+    let system = three_people().await;
+    let bot = service_user(&system, service_user_row("owner-active", "active")).await;
+
+    assert_eq!(titles(&search(&bot, "ada", 10).await), ["Ada Lovelace"]);
+    assert_eq!(titles(&search(&bot, "turing", 10).await), ["Alan Turing"]);
+}
+
+#[tokio::test]
+async fn suspended_service_user_finds_nobody_sad() {
+    let system = three_people().await;
+    let bot = service_user(&system, service_user_row("owner-suspended", "suspended")).await;
+
+    assert_eq!(search(&bot, "ada", 10).await, NONE);
+}
+
+#[tokio::test]
+async fn team_owned_service_user_finds_nobody_sad() {
+    let system = three_people().await;
+    let bot = service_user(
+        &system,
+        serde_json::json!({
+            "owner_kind": "team",
+            "team": "team:atlas",
+            "handle": "team-bot",
+            "handle_key": "teambot",
+            "display_name": "Team bot",
+            "status": "active",
+        }),
+    )
+    .await;
+
+    assert_eq!(search(&bot, "ada", 10).await, NONE);
+}
+
+#[tokio::test]
+async fn builtin_or_unknown_service_user_finds_nobody_sad() {
+    let system = three_people().await;
+    let cron = system.with_actor(Actor::ServiceUser {
+        service_name: "cron".to_string(),
+    });
+    let unknown = system.with_actor(ServiceUserId::new_v4().actor());
+
+    assert_eq!(search(&cron, "ada", 10).await, NONE);
+    assert_eq!(search(&unknown, "ada", 10).await, NONE);
+}
+
+#[tokio::test]
+async fn service_user_shares_its_owners_rate_limit() {
+    let system = three_people().await;
+    let bot = service_user(&system, service_user_row("owner-burst", "active")).await;
+    for _ in 0..BURST {
+        search(&as_user(&system, "owner-burst"), "ada", 10).await;
+    }
+
+    assert!(PeopleSearchSource.query(&bot, "ada", 10).await.is_err());
 }
 
 #[tokio::test]

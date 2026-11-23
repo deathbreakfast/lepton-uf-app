@@ -55,8 +55,10 @@ async function seedPerson(request: Request, displayName: string): Promise<string
   return out.user_id;
 }
 
-async function seedTeam(request: Request, name: string, members = 4): Promise<void> {
-  await personPickerLab(request, { action: "team", name, members });
+/** Seed a team in the stand-in team source; returns its id. */
+async function seedTeam(request: Request, name: string, members = 4): Promise<string> {
+  const out = await personPickerLab(request, { action: "team", name, members });
+  return out.id;
 }
 
 /** Sign in a fresh viewer in `look`, then open the demo page. Returns their email. */
@@ -192,6 +194,23 @@ for (const look of LOOKS) {
         .click();
       await expect(chips(page, "pp-multi")).toHaveCount(2);
       await expect(page.getByTestId("pp-multi-value")).not.toContainText("crew");
+    });
+
+    test(`pw-person-picker-team-by-id-happy [${look}]`, async ({ page, request, auth }) => {
+      // The server matches a team on its id, which isn't in the row's title; the
+      // combobox must still show it.
+      const Word = capitalized(uniqueWord());
+      const id = await seedTeam(request, `${Word} crew`);
+      await openDemo(page, auth, look);
+
+      const list = await search(page, "pp-multi", id);
+      const team = row(list, `${Word} crew`);
+      await expect(team).toBeVisible({ timeout: 30_000 });
+      await expect(team).toHaveAttribute("data-kind", "team");
+      await team.click();
+
+      await expect(chips(page, "pp-multi")).toHaveCount(1);
+      await expect(page.getByTestId("pp-multi-value")).toContainText(`${Word} crew (team)`);
     });
 
     test(`pw-person-picker-single-replaces-happy [${look}]`, async ({ page, request, auth }) => {
