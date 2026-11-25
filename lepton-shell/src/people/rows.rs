@@ -11,10 +11,12 @@ use uf_product::components::Caption1;
 use super::listing::{Listing, Row};
 
 /// A disabled option line whose filter text carries the query, so it shows for any input.
-fn status_option(value: String, text: &'static str, query: &str) -> impl IntoView {
+fn status_option(value: String, text: &str, query: &str) -> impl IntoView {
+    let filter = format!("{text} {query}");
+    let text = text.to_string();
     view! {
         <ComboboxOption
-            text=format!("{text} {query}")
+            text=filter
             value=value
             disabled=Signal::from(true)
         >
@@ -91,6 +93,7 @@ pub fn listing_view(listing: Listing, query: &str) -> impl IntoView {
         .map(|group| {
             let empty = group
                 .empty_text
+                .as_deref()
                 .map(|text| status_option(format!("__empty__:{}", group.key), text, query));
             let rows = group.rows.into_iter().map(row_view).collect_view();
             view! {

@@ -1,7 +1,7 @@
 /**
  * PersonPicker on `/dev/person-picker`: search, single and multi picks, excluded rows,
- * the empty box, the keyboard path, source captions with kind badges, and caller groups
- * loaded for the typed query. Every
+ * the empty box, the keyboard path, source captions with kind badges, a picker of caller
+ * rows only that never searches, and caller groups loaded for the typed query. Every
  * scenario runs on a desktop in light mode, on a phone, and on a desktop in dark mode.
  */
 import { test, expect, waitForAppReady } from "./fixtures";
@@ -334,6 +334,43 @@ for (const look of LOOKS) {
       await author.click();
       await expect(chips(page, "pp-sources")).toHaveCount(1);
       await expect(page.getByTestId("pp-sources-value")).toHaveText("Author (extra)");
+    });
+
+    test(`pw-person-picker-no-kinds-no-search-sad [${look}]`, async ({ page, auth }) => {
+      await openDemo(page, auth, look);
+      const searched: string[] = [];
+      page.on("request", (req) => {
+        if (/search_people/i.test(req.url())) {
+          searched.push(new URLSearchParams(req.postData() ?? "").get("query") ?? "");
+        }
+      });
+
+      const list = await search(page, "pp-extra-only", "zz");
+      await expect(list.locator('[data-group="extra-0"]')).toContainText("No people match.");
+      // A search in another picker outlasts the debounce, so a search for "zz" would
+      // have gone out by the time it answers. None did.
+      const word = uniqueWord();
+      const answered = page.waitForResponse((res) => /search_people/i.test(res.url()));
+      await input(page, "pp-single").fill(word);
+      await answered;
+      expect(searched).toEqual([word]);
+      await expect(section(page, "pp-extra-only").getByTestId("person-picker-error")).toHaveCount(0);
+      await expect(list).not.toContainText("Searching");
+    });
+
+    test(`pw-person-picker-extra-group-caption-happy [${look}]`, async ({ page, auth }) => {
+      await openDemo(page, auth, look);
+
+      const list = await search(page, "pp-extra-only", "In");
+      const group = list.locator('[data-group="extra-0"]');
+      await expect(group).toContainText("People · Lepton users");
+      const ines = row(group, "Ines Moreau");
+      await expect(ines.getByTestId("person-picker-badge")).toHaveText("Person");
+      await expect(section(page, "pp-extra-only").getByTestId("person-picker-error")).toHaveCount(0);
+      // Checked while the list is open: a closing list fades its labels mid-transition.
+      await expectNoA11yViolations(page, `person picker caller rows (${look})`);
+      await ines.click();
+      await expect(page.getByTestId("pp-extra-only-value")).toHaveText("Ines Moreau (extra)");
     });
 
     test(`pw-person-picker-query-groups-happy [${look}]`, async ({ page, auth }) => {

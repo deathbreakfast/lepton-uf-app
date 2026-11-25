@@ -29,8 +29,8 @@ pub struct Group {
     pub key: String,
     pub label: String,
     pub rows: Vec<Row>,
-    /// Shown in place of rows when a searched source found nothing.
-    pub empty_text: Option<&'static str>,
+    /// Shown in place of rows when a searched source or a caller group found nothing.
+    pub empty_text: Option<String>,
 }
 
 /// Everything the open list shows.
@@ -87,13 +87,15 @@ fn matches_typed(query: &str, texts: &[&str]) -> bool {
 pub fn build_listing(input: &ListingInput<'_>) -> Listing {
     let picked = |p: &PickedPrincipal| input.picked.iter().any(|x| x.key() == p.key());
     let excluded = |p: &PickedPrincipal| input.exclude.iter().any(|x| x.key() == p.key());
-    let row = |principal: PickedPrincipal, text: String, chip: Option<ViewFn>| Row {
+    // `badge_kind` is the kind the badge names; caller rows pass their option's `kind`.
+    let row = |principal: PickedPrincipal,
+               text: String,
+               chip: Option<ViewFn>,
+               badge_kind: Option<&PrincipalKind>| Row {
         disabled: excluded(&principal),
-        badge: if input.kind_badges {
-            kind_badge(&principal.kind)
-        } else {
-            None
-        },
+        badge: badge_kind
+            .filter(|_| input.kind_badges)
+            .and_then(kind_badge),
         chip,
         text,
         principal,
@@ -115,15 +117,20 @@ pub fn build_listing(input: &ListingInput<'_>) -> Listing {
                     Some(secondary) => format!("{} {secondary}", o.label),
                     None => o.label.clone(),
                 };
-                row(p, text, Some(o.chip.clone()))
+                row(p, text, Some(o.chip.clone()), o.kind.as_ref())
             })
             .collect();
-        if !rows.is_empty() {
+        let label = match (&group.caption, input.show_sources) {
+            (Some(caption), true) => caption.clone(),
+            _ => group.label.clone(),
+        };
+        let empty_text = group.empty_text.clone().filter(|_| input.show_sources);
+        if !rows.is_empty() || empty_text.is_some() {
             groups.push(Group {
                 key: format!("extra-{i}"),
-                label: group.label.clone(),
+                label,
+                empty_text: empty_text.filter(|_| rows.is_empty()),
                 rows,
-                empty_text: None,
             });
         }
     }
@@ -134,7 +141,7 @@ pub fn build_listing(input: &ListingInput<'_>) -> Listing {
             .iter()
             .filter(|p| input.kinds.contains(&p.kind) && !picked(p))
             .filter(|p| matches_typed(input.query, &[&p.label]))
-            .map(|p| row(p.clone(), p.label.clone(), None))
+            .map(|p| row(p.clone(), p.label.clone(), None, Some(&p.kind)))
             .collect();
         if !rows.is_empty() {
             groups.push(Group {
@@ -150,7 +157,13 @@ pub fn build_listing(input: &ListingInput<'_>) -> Listing {
         return Listing { groups, status };
     }
 
-    let Some(results) = input.results else {
+    // A picker that searches no kind never asks the server, so it has its answer already.
+    let results = if input.kinds.is_empty() {
+        Some(&[][..])
+    } else {
+        input.results
+    };
+    let Some(results) = results else {
         let status = groups.is_empty().then_some("Searching…");
         return Listing { groups, status };
     };
@@ -162,7 +175,14 @@ pub fn build_listing(input: &ListingInput<'_>) -> Listing {
         let rows: Vec<Row> = results
             .iter()
             .filter(|p| p.kind == *kind && !picked(p))
-            .map(|p| row(p.clone(), format!("{} {query}", p.label), None))
+            .map(|p| {
+                row(
+                    p.clone(),
+                    format!("{} {query}", p.label),
+                    None,
+                    Some(&p.kind),
+                )
+            })
             .collect();
         let label = if input.show_sources {
             source_caption(kind).map_or_else(|| group_label(kind), str::to_string)
@@ -181,7 +201,7 @@ pub fn build_listing(input: &ListingInput<'_>) -> Listing {
                 key: kind.key().to_string(),
                 label,
                 rows,
-                empty_text: empty_group_text(kind),
+                empty_text: empty_group_text(kind).map(str::to_string),
             });
         }
     }
@@ -221,7 +241,26 @@ pub mod fixtures {
                 label: "Author".into(),
                 secondary: Some("trigger.task.author".into()),
                 chip: ViewFn::default(),
+                kind: None,
             }],
+            caption: None,
+            empty_text: None,
+        }
+    }
+
+    /// Caller rows Magnon checks itself: one person with a source caption and empty text.
+    pub fn owner_group() -> PickerGroup {
+        PickerGroup {
+            label: "People".into(),
+            options: vec![PickerOption {
+                id: "u9".into(),
+                label: "Ines Moreau".into(),
+                secondary: None,
+                chip: ViewFn::default(),
+                kind: Some(PrincipalKind::User),
+            }],
+            caption: Some("People · Lepton users".into()),
+            empty_text: Some("No people match.".into()),
         }
     }
 
@@ -273,7 +312,7 @@ mod tests {
         let teams = &listing.groups[1];
         assert_eq!(teams.label, "Teams · Polaron teams you belong to");
         assert!(teams.rows.is_empty());
-        assert_eq!(teams.empty_text, Some("No teams match."));
+        assert_eq!(teams.empty_text.as_deref(), Some("No teams match."));
         assert_eq!(
             empty_group_text(&PrincipalKind::User),
             Some("No people match.")
@@ -402,5 +441,103 @@ mod tests {
         let listing = build_listing(&input("zz", Some(&[])));
         assert!(listing.groups.is_empty());
         assert_eq!(listing.status, Some("No one matches."));
+    }
+
+    #[test]
+    fn no_kinds_lists_extra_rows_without_searching_happy() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            kinds: &[],
+            ..input("in", None)
+        });
+        assert_eq!(labels(&listing), ["People"]);
+        assert_eq!(listing.status, None);
+    }
+
+    #[test]
+    fn no_kinds_and_no_match_says_no_one_sad() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            kinds: &[],
+            ..input("zz", None)
+        });
+        assert!(listing.groups.is_empty());
+        assert_eq!(listing.status, Some("No one matches."));
+    }
+
+    #[test]
+    fn extra_group_caption_with_sources_happy() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            show_sources: true,
+            ..input("in", Some(&[]))
+        });
+        assert_eq!(listing.groups[0].label, "People · Lepton users");
+    }
+
+    #[test]
+    fn extra_group_caption_without_sources_keeps_label_sad() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            ..input("in", Some(&[]))
+        });
+        assert_eq!(listing.groups[0].label, "People");
+    }
+
+    #[test]
+    fn extra_group_empty_text_with_sources_happy() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            show_sources: true,
+            ..input("zz", Some(&[]))
+        });
+        let group = &listing.groups[0];
+        assert_eq!(group.label, "People · Lepton users");
+        assert!(group.rows.is_empty());
+        assert_eq!(group.empty_text.as_deref(), Some("No people match."));
+    }
+
+    #[test]
+    fn extra_group_empty_text_hidden_without_sources_or_with_rows_sad() {
+        let extra = [owner_group()];
+        let hidden = build_listing(&ListingInput {
+            extra: &extra,
+            ..input("zz", Some(&[]))
+        });
+        assert!(hidden.groups.is_empty());
+        let with_rows = build_listing(&ListingInput {
+            extra: &extra,
+            show_sources: true,
+            ..input("in", Some(&[]))
+        });
+        assert!(with_rows.groups[0].empty_text.is_none());
+    }
+
+    #[test]
+    fn extra_row_badge_follows_option_kind_happy() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            kind_badges: true,
+            ..input("in", Some(&[]))
+        });
+        let row = &listing.groups[0].rows[0];
+        assert_eq!(row.badge.map(|(text, _)| text), Some("Person"));
+        assert_eq!(row.principal.kind, PrincipalKind::Extra("People".into()));
+    }
+
+    #[test]
+    fn extra_row_badge_off_without_kind_badges_sad() {
+        let extra = [owner_group()];
+        let listing = build_listing(&ListingInput {
+            extra: &extra,
+            ..input("in", Some(&[]))
+        });
+        assert!(listing.groups[0].rows[0].badge.is_none());
     }
 }
