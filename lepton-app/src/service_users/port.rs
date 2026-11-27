@@ -119,11 +119,12 @@ pub struct ServiceUserTokenView {
     pub public_id: String,
     /// Where the token is used, for example "Claude Code on laptop".
     pub label: String,
-    /// Day it was minted, `YYYY-MM-DD`.
+    /// When it was minted, RFC 3339. A bare `YYYY-MM-DD` still shows as written.
     pub created_on: String,
-    /// Day it stops working, `YYYY-MM-DD`.
+    /// When it stops working, RFC 3339. A bare `YYYY-MM-DD` still shows as written.
     pub expires_on: String,
-    /// Day it was last used, `YYYY-MM-DD`, or `None` when it never was.
+    /// When it was last used, RFC 3339, or `None` when it never was. A bare
+    /// `YYYY-MM-DD` still shows as written.
     pub last_used_on: Option<String>,
 }
 

@@ -9,17 +9,13 @@ use super::server::rotate_totp_seal_key;
 use super::step_up::spawn_with_fresh_code;
 use super::{friendly_error, Outcome};
 
-/// Status line for the seal key.
+/// Status line for the seal key. When it ends in "rotated", the card adds the date.
 fn key_status(view: &TotpKeyView) -> String {
     if view.version == 0 {
         return "TOTP seal key: not created yet".to_string();
     }
     match view.rotated_at {
-        Some(at) => format!(
-            "TOTP seal key: version {}, rotated {}",
-            view.version,
-            at.format("%Y-%m-%d")
-        ),
+        Some(_) => format!("TOTP seal key: version {}, rotated ", view.version),
         None => format!("TOTP seal key: version {}", view.version),
     }
 }
@@ -38,6 +34,7 @@ pub fn TotpKeyCard(
     /// Opens the page's "turn on two-factor" sheet.
     needs_two_factor: RwSignal<bool>,
 ) -> impl IntoView {
+    let rotated_at = view.rotated_at.filter(|_| view.version != 0);
     let error = RwSignal::new(None::<String>);
     Effect::new(move |_| {
         if let Some(message) = error.get() {
@@ -70,7 +67,12 @@ pub fn TotpKeyCard(
                 <div data-testid="delivery-totp-card">
                     <Flex vertical=true gap=FlexGap::Medium>
                         <Flex gap=FlexGap::Medium align=FlexAlign::Center wrap=FlexWrap::Wrap>
-                            <Caption1>{key_status(&view)}</Caption1>
+                            <Caption1>
+                                {key_status(&view)}
+                                {rotated_at.map(|at| view! {
+                                    <Timestamp value=at style=TimestampStyle::Date />
+                                })}
+                            </Caption1>
                             <div data-testid="delivery-totp-rotate">
                                 <Button appearance=ButtonAppearance::Secondary on_click=Callback::new(rotate)>
                                     "Rotate key"
@@ -102,10 +104,7 @@ mod tests {
             version: 2,
             rotated_at: Some(at),
         };
-        assert_eq!(
-            key_status(&view),
-            "TOTP seal key: version 2, rotated 2026-09-30"
-        );
+        assert_eq!(key_status(&view), "TOTP seal key: version 2, rotated ");
         assert_eq!(
             key_status(&TotpKeyView::default()),
             "TOTP seal key: not created yet"

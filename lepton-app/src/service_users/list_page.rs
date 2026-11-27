@@ -177,10 +177,8 @@ fn ServiceUserCard(service_user: ServiceUserRow, tokens_configured: bool) -> imp
     };
     let token_path = paths::service_users_token(&service_user.id);
     let detail_path = format!("{}/{}", paths::SERVICE_USERS, service_user.id);
-    let subtitle = format!(
-        "{} · Created {}",
-        service_user.display_name, service_user.created_on
-    );
+    let subtitle = format!("{} · Created ", service_user.display_name);
+    let created_on = service_user.created_on.clone();
     let test_id = format!("service-user-card-{}", service_user.handle);
 
     view! {
@@ -194,7 +192,10 @@ fn ServiceUserCard(service_user: ServiceUserRow, tokens_configured: bool) -> imp
                         <ServiceUserBadge />
                     </Flex>
                     <CardHeaderDescription slot>
-                        <Caption2>{subtitle}</Caption2>
+                        <Caption2>
+                            {subtitle}
+                            <Timestamp value=created_on style=TimestampStyle::Date />
+                        </Caption2>
                     </CardHeaderDescription>
                     <CardHeaderAction slot>
                         <Badge

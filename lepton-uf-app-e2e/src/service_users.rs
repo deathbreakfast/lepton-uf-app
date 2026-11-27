@@ -181,10 +181,9 @@ impl LabTokens {
     /// Lab seed: replace `service_user`'s tokens with `n` labelled ones. Even-numbered
     /// tokens were last used today; the rest never were. Returns their public ids.
     pub fn seed(&self, service_user: &str, n: usize) -> Vec<String> {
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        let expires = (chrono::Utc::now() + chrono::Duration::days(30))
-            .format("%Y-%m-%d")
-            .to_string();
+        let now = chrono::Utc::now();
+        let today = now.to_rfc3339();
+        let expires = (now + chrono::Duration::days(30)).to_rfc3339();
         let tokens: Vec<ServiceUserTokenView> = (0..n)
             .map(|i| ServiceUserTokenView {
                 public_id: lab_public_id(),
@@ -388,7 +387,7 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
         let ttl = old
             .as_ref()
             .and_then(|t| {
-                let day = |d: &str| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok();
+                let day = |d: &str| chrono::DateTime::parse_from_rfc3339(d).ok();
                 let days = (day(&t.expires_on)? - day(&t.created_on)?).num_days();
                 TokenTtl::from_days_str(&days.to_string())
             })
@@ -453,8 +452,8 @@ impl ServiceUserAccessBackend for LabServiceUserAccess {
             ServiceUserTokenView {
                 public_id: public_id.clone(),
                 label: label.to_string(),
-                created_on: now.format("%Y-%m-%d").to_string(),
-                expires_on: expires_at.format("%Y-%m-%d").to_string(),
+                created_on: now.to_rfc3339(),
+                expires_on: expires_at.to_rfc3339(),
                 last_used_on: None,
             },
         )?;

@@ -43,7 +43,17 @@ pub fn SecretRow(
     let open = RwSignal::new(false);
     let draft = RwSignal::new(String::new());
     let is_set = status.is_set;
-    let status_text = move || secret_status_text(&status, !value.with(|v| v.trim().is_empty()));
+    let status_text = move || {
+        let pending = !value.with(|v| v.trim().is_empty());
+        match (pending, status.is_set, status.rotated_at) {
+            (false, true, Some(at)) => view! {
+                "Set, rotated "
+                <Timestamp value=at style=TimestampStyle::Date />
+            }
+            .into_any(),
+            _ => secret_status_text(&status, pending).into_any(),
+        }
+    };
     let button_label = if is_set { "Replace" } else { "Set" };
     let title = format!("{button_label} {}", mid_sentence(label));
 

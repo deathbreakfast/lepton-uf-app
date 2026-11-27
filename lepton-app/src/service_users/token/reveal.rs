@@ -62,10 +62,8 @@ fn CopyButton(text: String, label: &'static str, test_id: &'static str) -> impl 
 pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
     let navigate = use_navigate();
     let secret = token.secret.expose().to_string();
-    let summary = format!(
-        "@{handle} can {}. This token expires on {}.",
-        token.can_do, token.expires_on
-    );
+    let summary = format!("@{handle} can {}. This token expires on ", token.can_do);
+    let expires_on = token.expires_on.clone();
 
     // Put focus on the copy button so keyboard users land on the next action.
     #[cfg(feature = "hydrate")]
@@ -121,7 +119,11 @@ pub fn TokenReveal(handle: String, token: MintedTokenView) -> impl IntoView {
                             <Subtitle2>"Add it to Claude Code"</Subtitle2>
                         })}
                         {setup}
-                        <div data-testid="service-user-token-summary"><Body1Strong>{summary}</Body1Strong></div>
+                        <div data-testid="service-user-token-summary"><Body1Strong>
+                            {summary}
+                            <Timestamp value=expires_on style=TimestampStyle::Date />
+                            "."
+                        </Body1Strong></div>
                     </Flex>
                 </CardContent>
                 <CardFooter>

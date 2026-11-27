@@ -57,7 +57,7 @@ pub struct ServiceUserRow {
     pub description: Option<String>,
     /// Active or paused.
     pub state: ServiceUserState,
-    /// Creation date, `YYYY-MM-DD` in UTC.
+    /// When it was created, RFC 3339.
     pub created_on: String,
 }
 
@@ -230,7 +230,7 @@ pub struct MintedTokenView {
     pub public_id: String,
     /// The secret. Shown once, never stored by the page.
     pub secret: RevealOnce,
-    /// Expiry date, `YYYY-MM-DD` in UTC.
+    /// When it stops working, RFC 3339.
     pub expires_on: String,
     /// What the token can do, for example "read Spectra metrics and events".
     pub can_do: String,
