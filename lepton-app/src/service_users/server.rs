@@ -113,7 +113,7 @@ pub(super) mod ssr {
                 ServiceUserAccountStatus::Active => ServiceUserState::Active,
                 ServiceUserAccountStatus::Suspended => ServiceUserState::Paused,
             },
-            created_on: service_user.created_at().format("%Y-%m-%d").to_string(),
+            created_on: service_user.created_at().to_rfc3339(),
         }
     }
 }
@@ -445,7 +445,7 @@ pub async fn mint_service_user_token(
         Ok(MintedTokenView {
             public_id: minted.public_id,
             secret: minted.secret,
-            expires_on: minted.expires_at.format("%Y-%m-%d").to_string(),
+            expires_on: minted.expires_at.to_rfc3339(),
             can_do: summarize(&chosen),
             setup: backend.client_setup(service_user.handle(), &chosen),
         })

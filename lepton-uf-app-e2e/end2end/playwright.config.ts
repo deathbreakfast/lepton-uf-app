@@ -16,6 +16,8 @@ export default defineConfig({
     actionTimeout: 30_000,
     navigationTimeout: 60_000,
     ...devices["Desktop Chrome"],
+    // Timestamps render in the viewer's zone; pin it so text stays stable.
+    timezoneId: "UTC",
     // Patreon capture: set PW_VIDEO=1 (and optionally PW_SLOW_MO) for WebM under test-results/.
     ...(process.env.PW_VIDEO
       ? {

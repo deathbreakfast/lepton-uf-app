@@ -313,7 +313,7 @@ pub async fn rotate_service_user_token(
         Ok(MintedTokenView {
             public_id: minted.public_id,
             secret: minted.secret,
-            expires_on: minted.expires_at.format("%Y-%m-%d").to_string(),
+            expires_on: minted.expires_at.to_rfc3339(),
             can_do: summarize(&chosen),
             setup: backend.client_setup(service_user.handle(), &chosen),
         })
@@ -476,6 +476,19 @@ fn Detail(
     }
 }
 
+/// "Last used" and when, or "Never used".
+#[component]
+fn LastUsed(last_used_on: Option<String>) -> impl IntoView {
+    match last_used_on {
+        Some(at) => view! {
+            "Last used "
+            <Timestamp value=at style=TimestampStyle::Date />
+        }
+        .into_any(),
+        None => "Never used".into_any(),
+    }
+}
+
 #[component]
 fn Identity(
     service_user: ServiceUserRow,
@@ -490,11 +503,8 @@ fn Identity(
     } else {
         (BadgeColor::Success, "Active")
     };
-    let used = last_used_on.map_or_else(|| "Never used".to_string(), |d| format!("Last used {d}"));
-    let subtitle = format!(
-        "@{} · Owned by {owner} · Created {} · {used}",
-        service_user.handle, service_user.created_on
-    );
+    let subtitle = format!("@{} · Owned by {owner} · Created ", service_user.handle);
+    let created_on = service_user.created_on.clone();
     let token_path = paths::service_users_token(&service_user.id);
     let handle = service_user.handle.clone();
     let id = service_user.id.clone();
@@ -507,7 +517,14 @@ fn Identity(
                         <ServiceUserBadge />
                     </Flex>
                     <CardHeaderDescription slot>
-                        <span data-testid="service-user-detail-meta"><Caption2>{subtitle}</Caption2></span>
+                        <span data-testid="service-user-detail-meta">
+                            <Caption2>
+                                {subtitle}
+                                <Timestamp value=created_on style=TimestampStyle::Date />
+                                " · "
+                                <LastUsed last_used_on=last_used_on />
+                            </Caption2>
+                        </span>
                     </CardHeaderDescription>
                     <CardHeaderAction slot>
                         <span data-testid="service-user-detail-state">
@@ -873,8 +890,7 @@ fn TokenRow(
         expires_on,
         last_used_on,
     } = token;
-    let dates = format!("{public_id} · Created {created_on} · Expires {expires_on}");
-    let used = last_used_on.map_or_else(|| "Never used".to_string(), |d| format!("Last used {d}"));
+    let id_prefix = format!("{public_id} · Created ");
     let title = format!("Revoke “{label}”?");
     let rotate_title = format!("Rotate “{label}”?");
     let done_text = format!("Token “{label}” revoked");
@@ -934,8 +950,13 @@ fn TokenRow(
             <Flex justify=FlexJustify::SpaceBetween align=FlexAlign::Center gap=FlexGap::Small wrap=FlexWrap::Wrap>
                 <Flex vertical=true>
                     <Body1Strong>{label}</Body1Strong>
-                    <Caption2>{dates}</Caption2>
-                    <Caption2>{used}</Caption2>
+                    <Caption2>
+                        {id_prefix}
+                        <Timestamp value=created_on style=TimestampStyle::Date />
+                        " · Expires "
+                        <Timestamp value=expires_on style=TimestampStyle::Date />
+                    </Caption2>
+                    <Caption2><LastUsed last_used_on=last_used_on /></Caption2>
                 </Flex>
                 <Flex gap=FlexGap::Small>
                     <div data-testid="service-user-detail-token-rotate">

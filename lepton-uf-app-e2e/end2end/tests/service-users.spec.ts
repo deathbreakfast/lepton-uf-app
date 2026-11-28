@@ -1039,6 +1039,13 @@ test.describe("pw-su-delete-tokens", () => {
     const usedRow = card.locator(`[data-token-id="${used}"]`);
     await expect(page.getByTestId("service-user-detail-meta")).toContainText("Owned by you");
     await expect(page.getByTestId("service-user-detail-meta")).toContainText("Last used");
+    // Created and last-used dates are Orbital Timestamps: a <time datetime> with a hover card.
+    const created = page.getByTestId("service-user-detail-meta").locator("time[datetime]").first();
+    await expect(created).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
+    await created.hover();
+    await expect(page.getByTestId("timestamp-card-utc").first()).toBeVisible();
+    await expect(page.getByTestId("timestamp-card-utc").first()).toContainText("UTC");
+    await page.mouse.move(0, 0);
 
     await usedRow.getByTestId("service-user-detail-token-rotate").getByRole("button").click();
     const dialog = page.getByRole("dialog");
