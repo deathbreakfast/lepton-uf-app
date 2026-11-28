@@ -471,8 +471,8 @@ fn Detail(
     view! {
         <Identity service_user=service_user owner=owner last_used_on=last_used_on on_changed=on_changed />
         <TokensCard service_user_id=id.clone() handle=handle.clone() tokens=tokens revealed=revealed on_changed=on_changed />
-        <GroupsCard service_user_id=id handle=handle groups=groups held_access=held_access on_changed=on_changed />
-        <PermissionsCard permissions=permissions />
+        <GroupsCard service_user_id=id.clone() handle=handle groups=groups held_access=held_access on_changed=on_changed />
+        <PermissionsCard service_user_id=id permissions=permissions />
     }
 }
 
@@ -1016,7 +1016,13 @@ fn TokenRow(
     }
 }
 
-/// A card whose rows scroll inside it, with the row count in its header.
+/// Gauge's page for one service user, where its groups and permissions link on to each group.
+fn gauge_service_user_href(service_user_id: &str) -> String {
+    format!("/permission/service-users/{service_user_id}")
+}
+
+/// A card whose rows scroll inside it, with the row count in its header. With `gauge_href` it
+/// ends with an "Open in Gauge" link, shown even when the list is empty.
 #[component]
 fn ListCard(
     title: &'static str,
@@ -1024,6 +1030,7 @@ fn ListCard(
     description: &'static str,
     empty: &'static str,
     test_id: &'static str,
+    #[prop(optional)] gauge_href: Option<String>,
     children: Children,
 ) -> impl IntoView {
     let heading = format!("{title} ({count})");
@@ -1058,6 +1065,13 @@ fn ListCard(
                             </ScrollArea>
                         }.into_any()
                     }}
+                    {gauge_href.map(|href| view! {
+                        <Flex justify=FlexJustify::End>
+                            <div data-testid=format!("{test_id}-open-in-gauge")>
+                                <Link href=href>"Open in Gauge"</Link>
+                            </div>
+                        </Flex>
+                    })}
                 </CardContent>
             </Card>
         </div>
@@ -1098,6 +1112,7 @@ fn GroupsCard(
             description="The service user holds what these groups hold."
             empty="It isn't in any groups."
             test_id="service-user-detail-groups"
+            gauge_href=gauge_service_user_href(&service_user_id)
         >
             {groups.into_iter().map(|g| view! {
                 <GroupRow
@@ -1203,7 +1218,10 @@ fn GroupRow(
 }
 
 #[component]
-fn PermissionsCard(permissions: Vec<ServiceUserPermissionView>) -> impl IntoView {
+fn PermissionsCard(
+    service_user_id: String,
+    permissions: Vec<ServiceUserPermissionView>,
+) -> impl IntoView {
     let count = permissions.len();
     view! {
         <ListCard
@@ -1212,6 +1230,7 @@ fn PermissionsCard(permissions: Vec<ServiceUserPermissionView>) -> impl IntoView
             description="What the service user can do, through its groups."
             empty="It has no permissions."
             test_id="service-user-detail-permissions"
+            gauge_href=gauge_service_user_href(&service_user_id)
         >
             {permissions.into_iter().map(|p| {
                 let caption = if p.description.is_empty() {
@@ -1263,6 +1282,14 @@ fn NotFound(raw: String) -> impl IntoView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gauge_link_points_at_the_service_user_page() {
+        assert_eq!(
+            gauge_service_user_href("7c41d0e9-2b6a-4f15-9e83-5a0c6d2f1b77"),
+            "/permission/service-users/7c41d0e9-2b6a-4f15-9e83-5a0c6d2f1b77"
+        );
+    }
 
     #[test]
     fn change_error_explains_a_repeated_change() {

@@ -644,6 +644,10 @@ test.describe("pw-su-detail", () => {
       const row = permissions.getByTestId("service-user-detail-permission-row");
       await expect(row).toContainText("lab.spectra.query");
       await expect(row).toContainText("Through Spectra readers");
+      for (const card of [groups, permissions]) {
+        const link = card.getByRole("link", { name: "Open in Gauge" });
+        await expect(link).toHaveAttribute("href", `/permission/service-users/${serviceUserId}`);
+      }
       await expectCleanLook(page, `service user detail (${look})`);
     });
   });
